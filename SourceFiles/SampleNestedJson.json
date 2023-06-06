@@ -1,0 +1,65 @@
+[
+	{
+		"id": "0001",
+		"type": "bike1",
+		"name": "superbike",
+		"price": 3,
+		"enginecapacity":
+			{
+				"cc":
+					[
+						{ "id": "1001", "type": "Regular" },
+						{ "id": "1002", "type": "xl" },
+						{ "id": "1003", "type": "xlplus" },
+						{ "id": "1004", "type": "elite" }
+					]
+			},
+		"customization":
+			[
+				{ "id": "5001", "type": "none" },
+				{ "id": "5002", "type": "discbrake" },
+				{ "id": "5005", "type": "exhaust" },
+				{ "id": "5007", "type": "color" },
+				{ "id": "5006", "type": "customized" },
+				{ "id": "5003", "type": "horn" },
+				{ "id": "5004", "type": "lights" }
+			]
+	},
+	{
+		"id": "0002",
+		"type": "bike2",
+		"name": "bike",
+		"price": 0.55,
+		"enginecapacity":
+			{
+				"cc":
+					[
+						{ "id": "1001", "type": "Regular" },
+						{ "id": "1002", "type": "plus" }
+					]
+			},
+		"customization":
+			[
+				{ "id": "5007", "type": "color" },
+				{ "id": "5006", "type": "customized" }
+			]
+	},
+	{
+		"id": "0003",
+		"type": "bike3",
+		"name": "OldFashioned",
+		"price": 0.45,
+		"enginecapacity":
+			{
+				"cc":
+					[
+						{ "id": "1001", "type": "Regular" }
+				
+					]
+			},
+		"customization":
+			[
+				{ "id": "5001", "type": "None" }
+			]
+	}
+]
