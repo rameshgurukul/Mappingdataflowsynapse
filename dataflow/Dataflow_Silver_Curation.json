@@ -1,0 +1,175 @@
+{
+	"name": "Dataflow_Silver_Curation",
+	"properties": {
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"linkedService": {
+						"referenceName": "AzureDataLakeStorageWorkshop",
+						"type": "LinkedServiceReference"
+					},
+					"name": "source"
+				},
+				{
+					"linkedService": {
+						"referenceName": "AzureDataLakeStorageWorkshop",
+						"type": "LinkedServiceReference"
+					},
+					"name": "sourcelkp"
+				}
+			],
+			"sinks": [
+				{
+					"linkedService": {
+						"referenceName": "AzureDataLakeStorageWorkshop",
+						"type": "LinkedServiceReference"
+					},
+					"name": "sink"
+				}
+			],
+			"transformations": [
+				{
+					"name": "join"
+				},
+				{
+					"name": "select"
+				},
+				{
+					"name": "joinn"
+				},
+				{
+					"name": "selectfin"
+				}
+			],
+			"scriptLines": [
+				"source(output(",
+				"          VendorID as long,",
+				"          lpep_pickup_datetime as timestamp,",
+				"          lpep_dropoff_datetime as timestamp,",
+				"          store_and_fwd_flag as string,",
+				"          RatecodeID as double,",
+				"          PULocationID as long,",
+				"          DOLocationID as long,",
+				"          passenger_count as double,",
+				"          trip_distance as double,",
+				"          fare_amount as double,",
+				"          extra as double,",
+				"          mta_tax as double,",
+				"          tip_amount as double,",
+				"          tolls_amount as double,",
+				"          ehail_fee as integer,",
+				"          improvement_surcharge as double,",
+				"          total_amount as double,",
+				"          payment_type as double,",
+				"          trip_type as double,",
+				"          congestion_surcharge as double",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     ignoreNoFilesFound: false,",
+				"     format: 'delta',",
+				"     fileSystem: 'synpswrkshp',",
+				"     folderPath: 'bronze/NycGreenTaxi') ~> source",
+				"source(output(",
+				"          LocationID as short,",
+				"          Borough as string,",
+				"          Zone as string,",
+				"          service_zone as string",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     ignoreNoFilesFound: true,",
+				"     format: 'delta',",
+				"     fileSystem: 'synpswrkshp',",
+				"     folderPath: 'bronze/zonelookup') ~> sourcelkp",
+				"source, sourcelkp join(PULocationID == LocationID,",
+				"     joinType:'left',",
+				"     matchType:'exact',",
+				"     ignoreSpaces: false,",
+				"     broadcast: 'auto')~> join",
+				"join select(mapColumn(",
+				"          VendorID,",
+				"          lpep_pickup_datetime,",
+				"          lpep_dropoff_datetime,",
+				"          store_and_fwd_flag,",
+				"          RatecodeID,",
+				"          PULocationID,",
+				"          DOLocationID,",
+				"          passenger_count,",
+				"          trip_distance,",
+				"          fare_amount,",
+				"          extra,",
+				"          mta_tax,",
+				"          tip_amount,",
+				"          tolls_amount,",
+				"          ehail_fee,",
+				"          improvement_surcharge,",
+				"          total_amount,",
+				"          payment_type,",
+				"          trip_type,",
+				"          congestion_surcharge,",
+				"          PU_Borough = Borough,",
+				"          PU_Zone = Zone,",
+				"          PU_service_zone = service_zone",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> select",
+				"select, sourcelkp join(VendorID == LocationID,",
+				"     joinType:'left',",
+				"     matchType:'exact',",
+				"     ignoreSpaces: false,",
+				"     broadcast: 'auto')~> joinn",
+				"joinn select(mapColumn(",
+				"          VendorID,",
+				"          lpep_pickup_datetime,",
+				"          lpep_dropoff_datetime,",
+				"          store_and_fwd_flag,",
+				"          RatecodeID,",
+				"          PULocationID,",
+				"          DOLocationID,",
+				"          passenger_count,",
+				"          trip_distance,",
+				"          fare_amount,",
+				"          extra,",
+				"          mta_tax,",
+				"          tip_amount,",
+				"          tolls_amount,",
+				"          ehail_fee,",
+				"          improvement_surcharge,",
+				"          total_amount,",
+				"          payment_type,",
+				"          trip_type,",
+				"          congestion_surcharge,",
+				"          PU_Borough,",
+				"          PU_Zone,",
+				"          PU_service_zone,",
+				"          DO_Borough = Borough,",
+				"          Do_Zone = Zone,",
+				"          DO_service_zone = service_zone",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> selectfin",
+				"selectfin sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     format: 'delta',",
+				"     fileSystem: 'synpswrkshp',",
+				"     folderPath: 'silver/nycgreentaxienhanced',",
+				"     overwrite:true,",
+				"     mergeSchema: false,",
+				"     autoCompact: false,",
+				"     optimizedWrite: false,",
+				"     vacuum: 0,",
+				"     deletable:false,",
+				"     insertable:true,",
+				"     updateable:false,",
+				"     upsertable:false,",
+				"     umask: 0022,",
+				"     preCommands: [],",
+				"     postCommands: [],",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> sink"
+			]
+		}
+	}
+}

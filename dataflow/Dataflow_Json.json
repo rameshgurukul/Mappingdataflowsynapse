@@ -1,0 +1,86 @@
+{
+	"name": "Dataflow_Json",
+	"properties": {
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"linkedService": {
+						"referenceName": "AzureDataLakeStorageWorkshop",
+						"type": "LinkedServiceReference"
+					},
+					"name": "source"
+				}
+			],
+			"sinks": [
+				{
+					"dataset": {
+						"referenceName": "ParquetSink",
+						"type": "DatasetReference"
+					},
+					"name": "sink"
+				}
+			],
+			"transformations": [
+				{
+					"name": "flatten"
+				},
+				{
+					"name": "flattencc"
+				}
+			],
+			"scriptLines": [
+				"source(output(",
+				"          customization as (id as short, type as string)[],",
+				"          enginecapacity as (cc as (id as short, type as string)[]),",
+				"          id as short,",
+				"          name as string,",
+				"          price as double,",
+				"          type as string",
+				"     ),",
+				"     useSchema: false,",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     limit: 100,",
+				"     ignoreNoFilesFound: false,",
+				"     format: 'json',",
+				"     fileSystem: 'synpswrkshp',",
+				"     fileName: 'SampleNestedJson.json',",
+				"     documentForm: 'arrayOfDocuments') ~> source",
+				"source foldDown(unroll(customization),",
+				"     mapColumn(",
+				"          customizationid = customization.id,",
+				"          id,",
+				"          name,",
+				"          price,",
+				"          type,",
+				"          customtype = customization.type,",
+				"          enginecapacity",
+				"     ),",
+				"     skipDuplicateMapInputs: false,",
+				"     skipDuplicateMapOutputs: false) ~> flatten",
+				"flatten foldDown(unroll(enginecapacity.cc),",
+				"     mapColumn(",
+				"          customizationid,",
+				"          id,",
+				"          name,",
+				"          price,",
+				"          type,",
+				"          customtype,",
+				"          ccid = enginecapacity.cc.id,",
+				"          cctype = enginecapacity.cc.type",
+				"     ),",
+				"     skipDuplicateMapInputs: false,",
+				"     skipDuplicateMapOutputs: false) ~> flattencc",
+				"flattencc sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     format: 'parquet',",
+				"     umask: 0022,",
+				"     preCommands: [],",
+				"     postCommands: [],",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> sink"
+			]
+		}
+	}
+}

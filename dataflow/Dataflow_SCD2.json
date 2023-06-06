@@ -1,0 +1,238 @@
+{
+	"name": "Dataflow_SCD2",
+	"properties": {
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"linkedService": {
+						"referenceName": "AzureDataLakeStorageWorkshop",
+						"type": "LinkedServiceReference"
+					},
+					"name": "source2"
+				},
+				{
+					"linkedService": {
+						"referenceName": "AzureDataLakeStorageWorkshop",
+						"type": "LinkedServiceReference"
+					},
+					"name": "source1"
+				}
+			],
+			"sinks": [
+				{
+					"linkedService": {
+						"referenceName": "AzureDataLakeStorageWorkshop",
+						"type": "LinkedServiceReference"
+					},
+					"name": "sink1"
+				}
+			],
+			"transformations": [
+				{
+					"name": "join1"
+				},
+				{
+					"name": "LookForNULLs"
+				},
+				{
+					"name": "derivedColumn1"
+				},
+				{
+					"name": "select1"
+				},
+				{
+					"name": "select2"
+				},
+				{
+					"name": "select3"
+				},
+				{
+					"name": "derivedColumn2"
+				},
+				{
+					"name": "select4"
+				},
+				{
+					"name": "derivedColumn3"
+				},
+				{
+					"name": "aggregate1"
+				},
+				{
+					"name": "join2"
+				},
+				{
+					"name": "join3"
+				},
+				{
+					"name": "derivedColumn4"
+				},
+				{
+					"name": "select5"
+				},
+				{
+					"name": "aggregate2"
+				},
+				{
+					"name": "union1"
+				},
+				{
+					"name": "derivedColumn5"
+				},
+				{
+					"name": "alterRow1"
+				}
+			],
+			"scriptLines": [
+				"source(output(",
+				"          LocationID as short,",
+				"          Borough as string,",
+				"          Zone as string,",
+				"          service_zone as string,",
+				"          StartDate as timestamp,",
+				"          EndDate as timestamp,",
+				"          IsCurrent as boolean,",
+				"          Processime as timestamp,",
+				"          surrogatekeycol as long",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     ignoreNoFilesFound: false,",
+				"     format: 'delta',",
+				"     fileSystem: 'synpswrkshp',",
+				"     folderPath: 'bronze/SCD2') ~> source2",
+				"source(output(",
+				"          LocationID as short,",
+				"          Borough as string,",
+				"          Zone as string,",
+				"          service_zone as string",
+				"     ),",
+				"     useSchema: false,",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     ignoreNoFilesFound: false,",
+				"     format: 'delimited',",
+				"     fileSystem: 'synpswrkshp',",
+				"     fileName: 'taxizonelookup_scd2.csv',",
+				"     columnDelimiter: ',',",
+				"     escapeChar: '\\\\',",
+				"     quoteChar: '\\\"',",
+				"     columnNamesAsHeader: true) ~> source1",
+				"join2, source2 join(LocationIDnew == LocationID",
+				"     && iscurr == IsCurrent,",
+				"     joinType:'left',",
+				"     matchType:'exact',",
+				"     ignoreSpaces: false,",
+				"     broadcast: 'auto')~> join1",
+				"join1 split(isNull(LocationID),",
+				"     disjoint: false) ~> LookForNULLs@(hasNULLs, noNULLs)",
+				"LookForNULLs@hasNULLs derive(StartDate = currentTimestamp(),",
+				"          IsCurrent = true(),",
+				"          Processime = currentTimestamp(),",
+				"          surrogatekeycolnew = iifNull(surrogatekeycol,0) + maxval+1) ~> derivedColumn1",
+				"derivedColumn1 select(mapColumn(",
+				"          LocationID = LocationIDnew,",
+				"          Borough = Boroughnew,",
+				"          Zone = Zonenew,",
+				"          service_zone = service_zonenew,",
+				"          StartDate,",
+				"          EndDate,",
+				"          IsCurrent,",
+				"          Processime,",
+				"          surrogatekeycol = surrogatekeycolnew",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> select1",
+				"LookForNULLs@noNULLs select(mapColumn(",
+				"          LocationID,",
+				"          Borough,",
+				"          Zone,",
+				"          service_zone,",
+				"          StartDate,",
+				"          EndDate,",
+				"          IsCurrent,",
+				"          Processime,",
+				"          surrogatekeycol",
+				"     ),",
+				"     skipDuplicateMapInputs: false,",
+				"     skipDuplicateMapOutputs: false) ~> select2",
+				"derivedColumn5 select(mapColumn(",
+				"          LocationIDnew = LocationID,",
+				"          Boroughnew = Borough,",
+				"          Zonenew = Zone,",
+				"          service_zonenew = service_zone,",
+				"          iscurr",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> select3",
+				"select2 derive(IsCurrent = false(),",
+				"          Processime = currentTimestamp(),",
+				"          EndDate = iifNull(currentTimestamp(), EndDate)) ~> derivedColumn2",
+				"LookForNULLs@noNULLs select(mapColumn(",
+				"          LocationID = LocationIDnew,",
+				"          Borough = Boroughnew,",
+				"          Zone = Zonenew,",
+				"          service_zone = service_zonenew,",
+				"          StartDate,",
+				"          EndDate,",
+				"          IsCurrent,",
+				"          Processime,",
+				"          surrogatekeycol",
+				"     ),",
+				"     skipDuplicateMapInputs: false,",
+				"     skipDuplicateMapOutputs: false) ~> select4",
+				"select4 derive(Processime = currentTimestamp(),",
+				"          StartDate = currentTimestamp()) ~> derivedColumn3",
+				"source2 aggregate(maxval = max(surrogatekeycol)) ~> aggregate1",
+				"select3, aggregate1 join(1==1,",
+				"     joinType:'cross',",
+				"     matchType:'exact',",
+				"     ignoreSpaces: false,",
+				"     broadcast: 'auto')~> join2",
+				"derivedColumn3, aggregate2 join(1==1,",
+				"     joinType:'cross',",
+				"     matchType:'exact',",
+				"     ignoreSpaces: false,",
+				"     broadcast: 'auto')~> join3",
+				"join3 derive(surrogatekeycol = surrogatekeycol+maxnewval) ~> derivedColumn4",
+				"derivedColumn4 select(mapColumn(",
+				"          LocationID,",
+				"          Borough,",
+				"          Zone,",
+				"          service_zone,",
+				"          StartDate,",
+				"          EndDate,",
+				"          IsCurrent,",
+				"          Processime,",
+				"          surrogatekeycol",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> select5",
+				"select1 aggregate(maxnewval = max(surrogatekeycol)) ~> aggregate2",
+				"select1, select5, derivedColumn2 union(byName: true)~> union1",
+				"source1 derive(iscurr = true()) ~> derivedColumn5",
+				"union1 alterRow(upsertIf(true())) ~> alterRow1",
+				"alterRow1 sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     format: 'delta',",
+				"     fileSystem: 'synpswrkshp',",
+				"     folderPath: 'bronze/SCD2',",
+				"     mergeSchema: false,",
+				"     autoCompact: false,",
+				"     optimizedWrite: false,",
+				"     vacuum: 0,",
+				"     deletable:false,",
+				"     insertable:true,",
+				"     updateable:false,",
+				"     upsertable:true,",
+				"     keys:['surrogatekeycol'],",
+				"     umask: 0022,",
+				"     preCommands: [],",
+				"     postCommands: [],",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> sink1"
+			]
+		}
+	}
+}

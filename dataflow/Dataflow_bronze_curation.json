@@ -1,0 +1,50 @@
+{
+	"name": "Dataflow_bronze_curation",
+	"properties": {
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [],
+			"sinks": [
+				{
+					"linkedService": {
+						"referenceName": "AzureDataLakeStorageWorkshop",
+						"type": "LinkedServiceReference"
+					},
+					"name": "sinkbronze"
+				}
+			],
+			"transformations": [
+				{
+					"name": "compose",
+					"flowlet": {
+						"referenceName": "FLW_GreenTaxi",
+						"type": "DataFlowReference"
+					}
+				}
+			],
+			"scriptLines": [
+				"compose(composition: 'FLW_GreenTaxi') ~> compose@(output)",
+				"compose@output sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     format: 'delta',",
+				"     fileSystem: 'synpswrkshp',",
+				"     folderPath: 'bronze/NycGreenTaxi',",
+				"     overwrite:true,",
+				"     mergeSchema: false,",
+				"     autoCompact: false,",
+				"     optimizedWrite: false,",
+				"     vacuum: 0,",
+				"     deletable:false,",
+				"     insertable:true,",
+				"     updateable:false,",
+				"     upsertable:false,",
+				"     keys:['VendorID','lpep_pickup_datetime','lpep_dropoff_datetime','PULocationID','DOLocationID','RatecodeID','fare_amount','tip_amount'],",
+				"     umask: 0022,",
+				"     preCommands: [],",
+				"     postCommands: [],",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> sinkbronze"
+			]
+		}
+	}
+}

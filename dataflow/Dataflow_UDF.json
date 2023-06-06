@@ -1,0 +1,48 @@
+{
+	"name": "Dataflow_UDF",
+	"properties": {
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [],
+			"sinks": [
+				{
+					"dataset": {
+						"referenceName": "ParquetSink",
+						"type": "DatasetReference"
+					},
+					"name": "sink"
+				}
+			],
+			"transformations": [
+				{
+					"name": "derivedColumn"
+				},
+				{
+					"name": "compose",
+					"flowlet": {
+						"referenceName": "FLW_GreenTaxi",
+						"type": "DataFlowReference"
+					}
+				}
+			],
+			"udfLibraries": [
+				{
+					"referenceName": "stringLib",
+					"type": "DataFlowReference"
+				}
+			],
+			"scriptLines": [
+				"compose(composition: 'FLW_GreenTaxi') ~> compose@(output)",
+				"compose@output derive(store_and_fwd_flag = TrimValue(store_and_fwd_flag)) ~> derivedColumn",
+				"derivedColumn sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     format: 'parquet',",
+				"     umask: 0022,",
+				"     preCommands: [],",
+				"     postCommands: [],",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> sink"
+			]
+		}
+	}
+}

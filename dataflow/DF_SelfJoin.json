@@ -1,0 +1,143 @@
+{
+	"name": "DF_SelfJoin",
+	"properties": {
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"dataset": {
+						"referenceName": "DS_Parquet",
+						"type": "DatasetReference"
+					},
+					"name": "sourceadls"
+				},
+				{
+					"dataset": {
+						"referenceName": "DS_Parquet",
+						"type": "DatasetReference"
+					},
+					"name": "dupsource"
+				}
+			],
+			"sinks": [
+				{
+					"linkedService": {
+						"referenceName": "AzureDataLakeStorageWorkshop",
+						"type": "LinkedServiceReference"
+					},
+					"name": "sink"
+				}
+			],
+			"transformations": [
+				{
+					"name": "select"
+				},
+				{
+					"name": "DailyTip"
+				},
+				{
+					"name": "join"
+				},
+				{
+					"name": "derivedColumn"
+				},
+				{
+					"name": "derivedColumndup"
+				}
+			],
+			"scriptLines": [
+				"source(output(",
+				"          VendorID as long,",
+				"          lpep_pickup_datetime as timestamp,",
+				"          lpep_dropoff_datetime as timestamp,",
+				"          store_and_fwd_flag as string,",
+				"          RatecodeID as double,",
+				"          PULocationID as long,",
+				"          DOLocationID as long,",
+				"          passenger_count as double,",
+				"          trip_distance as double,",
+				"          fare_amount as double,",
+				"          extra as double,",
+				"          mta_tax as double,",
+				"          tip_amount as double,",
+				"          tolls_amount as double,",
+				"          ehail_fee as integer,",
+				"          improvement_surcharge as double,",
+				"          total_amount as double,",
+				"          payment_type as double,",
+				"          trip_type as double,",
+				"          congestion_surcharge as double",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     ignoreNoFilesFound: false,",
+				"     format: 'parquet') ~> sourceadls",
+				"source(output(",
+				"          VendorID as long,",
+				"          lpep_pickup_datetime as timestamp,",
+				"          lpep_dropoff_datetime as timestamp,",
+				"          store_and_fwd_flag as string,",
+				"          RatecodeID as double,",
+				"          PULocationID as long,",
+				"          DOLocationID as long,",
+				"          passenger_count as double,",
+				"          trip_distance as double,",
+				"          fare_amount as double,",
+				"          extra as double,",
+				"          mta_tax as double,",
+				"          tip_amount as double,",
+				"          tolls_amount as double,",
+				"          ehail_fee as integer,",
+				"          improvement_surcharge as double,",
+				"          total_amount as double,",
+				"          payment_type as double,",
+				"          trip_type as double,",
+				"          congestion_surcharge as double",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     ignoreNoFilesFound: false,",
+				"     format: 'parquet') ~> dupsource",
+				"sourceadls select(mapColumn(",
+				"          VendorID,",
+				"          lpep_pickup_datetime,",
+				"          lpep_dropoff_datetime,",
+				"          store_and_fwd_flag,",
+				"          RatecodeID,",
+				"          PULocationID,",
+				"          DOLocationID,",
+				"          passenger_count,",
+				"          trip_distance,",
+				"          fare_amount,",
+				"          mta_tax,",
+				"          tip_amount,",
+				"          tolls_amount,",
+				"          improvement_surcharge,",
+				"          total_amount,",
+				"          payment_type,",
+				"          trip_type",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> select",
+				"derivedColumn aggregate(groupBy(pickupdate),",
+				"     sumtip = sum(tip_amount)) ~> DailyTip",
+				"derivedColumndup, DailyTip join(derivedColumndup@pickupdate == DailyTip@pickupdate,",
+				"     joinType:'inner',",
+				"     matchType:'exact',",
+				"     ignoreSpaces: false,",
+				"     broadcast: 'auto')~> join",
+				"select derive(pickupdate = toDate(lpep_pickup_datetime)) ~> derivedColumn",
+				"dupsource derive(pickupdate = toDate(lpep_dropoff_datetime)) ~> derivedColumndup",
+				"join sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     format: 'json',",
+				"     fileSystem: 'synpswrkshp',",
+				"     umask: 0022,",
+				"     preCommands: [],",
+				"     postCommands: [],",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> sink"
+			]
+		}
+	}
+}

@@ -1,0 +1,43 @@
+{
+	"name": "Dataflow_Create_ComplexType",
+	"properties": {
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [],
+			"sinks": [
+				{
+					"dataset": {
+						"referenceName": "ParquetParam",
+						"type": "DatasetReference"
+					},
+					"name": "sink"
+				}
+			],
+			"transformations": [
+				{
+					"name": "derivedColumn"
+				},
+				{
+					"name": "compose",
+					"flowlet": {
+						"referenceName": "FLW_GreenTaxi",
+						"type": "DataFlowReference"
+					}
+				}
+			],
+			"scriptLines": [
+				"compose(composition: 'FLW_GreenTaxi') ~> compose@(output)",
+				"compose@output derive(locationdetails = @(pickuploc=PULocationID,",
+				"          dropoffloc=DOLocationID)) ~> derivedColumn",
+				"derivedColumn sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     format: 'parquet',",
+				"     umask: 0022,",
+				"     preCommands: [],",
+				"     postCommands: [],",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> sink"
+			]
+		}
+	}
+}

@@ -1,0 +1,68 @@
+{
+	"name": "Dataflow_ParseJson",
+	"properties": {
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"linkedService": {
+						"referenceName": "AzureDataLakeStorageWorkshop",
+						"type": "LinkedServiceReference"
+					},
+					"name": "source1"
+				}
+			],
+			"sinks": [
+				{
+					"linkedService": {
+						"referenceName": "AzureDataLakeStorageWorkshop",
+						"type": "LinkedServiceReference"
+					},
+					"name": "sink1"
+				}
+			],
+			"transformations": [
+				{
+					"name": "stringify1"
+				},
+				{
+					"name": "parse1"
+				}
+			],
+			"scriptLines": [
+				"source(output(",
+				"          customization as (id as short, type as string)[],",
+				"          enginecapacity as (cc as (id as short, type as string)[]),",
+				"          id as short,",
+				"          name as string,",
+				"          price as double,",
+				"          type as string",
+				"     ),",
+				"     useSchema: false,",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     ignoreNoFilesFound: false,",
+				"     format: 'json',",
+				"     fileSystem: 'synpswrkshp',",
+				"     fileName: 'SampleJsonParse.json',",
+				"     documentForm: 'arrayOfDocuments') ~> source1",
+				"source1 stringify(jsonstring = enginecapacity.cc ? string,",
+				"     format: 'json') ~> stringify1",
+				"stringify1 parse(newcol = jsonstring ? (id as short,",
+				"          type as string),",
+				"     format: 'json',",
+				"     documentForm: 'arrayOfDocuments') ~> parse1",
+				"parse1 sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     format: 'json',",
+				"     fileSystem: 'synpswrkshp',",
+				"     folderPath: 'outputjson',",
+				"     umask: 0022,",
+				"     preCommands: [],",
+				"     postCommands: [],",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> sink1"
+			]
+		}
+	}
+}

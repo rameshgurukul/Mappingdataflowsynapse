@@ -1,0 +1,143 @@
+{
+	"name": "Dataflow_SCD1",
+	"properties": {
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"linkedService": {
+						"referenceName": "AzureDataLakeStorageWorkshop",
+						"type": "LinkedServiceReference"
+					},
+					"name": "source2"
+				},
+				{
+					"linkedService": {
+						"referenceName": "AzureDataLakeStorageWorkshop",
+						"type": "LinkedServiceReference"
+					},
+					"name": "source1"
+				}
+			],
+			"sinks": [
+				{
+					"linkedService": {
+						"referenceName": "AzureDataLakeStorageWorkshop",
+						"type": "LinkedServiceReference"
+					},
+					"name": "sink1"
+				}
+			],
+			"transformations": [
+				{
+					"name": "join1"
+				},
+				{
+					"name": "LookForNULLs"
+				},
+				{
+					"name": "derivedColumn1"
+				},
+				{
+					"name": "select1"
+				},
+				{
+					"name": "derivedColumn2"
+				},
+				{
+					"name": "select2"
+				},
+				{
+					"name": "union1"
+				},
+				{
+					"name": "alterRow1"
+				}
+			],
+			"scriptLines": [
+				"source(output(",
+				"          LocationID as short,",
+				"          Borough as string,",
+				"          Zone as string,",
+				"          service_zone as string,",
+				"          inserteddate as timestamp,",
+				"          updatedDate as timestamp",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     ignoreNoFilesFound: false,",
+				"     format: 'delta',",
+				"     fileSystem: 'synpswrkshp',",
+				"     folderPath: 'bronze/SCD1') ~> source2",
+				"source(output(",
+				"          LocationID as short,",
+				"          Borough as string,",
+				"          Zone as string,",
+				"          service_zone as string",
+				"     ),",
+				"     useSchema: false,",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     ignoreNoFilesFound: false,",
+				"     format: 'delimited',",
+				"     fileSystem: 'synpswrkshp',",
+				"     fileName: 'taxizonelookup_scd1_ins.csv',",
+				"     columnDelimiter: ',',",
+				"     escapeChar: '\\\\',",
+				"     quoteChar: '\\\"',",
+				"     columnNamesAsHeader: true) ~> source1",
+				"source1, source2 join(source1@LocationID == source2@LocationID,",
+				"     joinType:'left',",
+				"     matchType:'exact',",
+				"     ignoreSpaces: false,",
+				"     broadcast: 'auto')~> join1",
+				"join1 split(isNull(source2@LocationID),",
+				"     disjoint: false) ~> LookForNULLs@(hasNULLs, noNULLs)",
+				"LookForNULLs@hasNULLs derive(inserteddate = currentTimestamp(),",
+				"          updatedDate = toTimestamp('12/31/2078')) ~> derivedColumn1",
+				"derivedColumn1 select(mapColumn(",
+				"          LocationID = LookForNULLs@hasNULLs@LocationID,",
+				"          Borough = LookForNULLs@hasNULLs@Borough,",
+				"          Zone = LookForNULLs@hasNULLs@Zone,",
+				"          service_zone = LookForNULLs@hasNULLs@service_zone,",
+				"          inserteddate,",
+				"          updatedDate",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> select1",
+				"LookForNULLs@noNULLs derive(updatedDate = currentTimestamp()) ~> derivedColumn2",
+				"derivedColumn2 select(mapColumn(",
+				"          LocationID = LookForNULLs@noNULLs@LocationID,",
+				"          Borough = LookForNULLs@noNULLs@Borough,",
+				"          Zone = LookForNULLs@noNULLs@Zone,",
+				"          service_zone = LookForNULLs@noNULLs@service_zone,",
+				"          inserteddate,",
+				"          updatedDate",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> select2",
+				"select1, select2 union(byName: true)~> union1",
+				"union1 alterRow(upsertIf(true())) ~> alterRow1",
+				"alterRow1 sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     format: 'delta',",
+				"     fileSystem: 'synpswrkshp',",
+				"     folderPath: 'bronze/SCD1',",
+				"     mergeSchema: false,",
+				"     autoCompact: false,",
+				"     optimizedWrite: false,",
+				"     vacuum: 0,",
+				"     deletable:false,",
+				"     insertable:true,",
+				"     updateable:false,",
+				"     upsertable:true,",
+				"     keys:['LocationID'],",
+				"     umask: 0022,",
+				"     preCommands: [],",
+				"     postCommands: [],",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> sink1"
+			]
+		}
+	}
+}

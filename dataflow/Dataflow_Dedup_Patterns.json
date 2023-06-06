@@ -1,0 +1,75 @@
+{
+	"name": "Dataflow_Dedup_Patterns",
+	"properties": {
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [],
+			"sinks": [
+				{
+					"linkedService": {
+						"referenceName": "AzureDataLakeStorageWorkshop",
+						"type": "LinkedServiceReference"
+					},
+					"name": "sink"
+				}
+			],
+			"transformations": [
+				{
+					"name": "aggregate2"
+				},
+				{
+					"name": "DistinctRows"
+				},
+				{
+					"name": "aggregate3"
+				},
+				{
+					"name": "select1"
+				},
+				{
+					"name": "compose",
+					"flowlet": {
+						"referenceName": "FLW_GreenTaxi",
+						"type": "DataFlowReference"
+					}
+				},
+				{
+					"name": "compose1",
+					"flowlet": {
+						"referenceName": "FLW_GreenTaxi",
+						"type": "DataFlowReference"
+					}
+				}
+			],
+			"scriptLines": [
+				"compose(composition: 'FLW_GreenTaxi') ~> compose@(output)",
+				"compose(composition: 'FLW_GreenTaxi') ~> compose1@(output)",
+				"compose@output aggregate(rowcount = count(1)) ~> aggregate2",
+				"select1 aggregate(groupBy(mycols = sha2(256,columns())),",
+				"     each(match(true()), $$ = first($$))) ~> DistinctRows",
+				"DistinctRows aggregate(rcnt = count(1)) ~> aggregate3",
+				"compose1@output select(mapColumn(",
+				"          VendorID,",
+				"          lpep_pickup_datetime,",
+				"          lpep_dropoff_datetime,",
+				"          PULocationID",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> select1",
+				"aggregate3 sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     format: 'delimited',",
+				"     fileSystem: 'synpswrkshp',",
+				"     columnDelimiter: ',',",
+				"     escapeChar: '\\\\',",
+				"     quoteChar: '\\\"',",
+				"     columnNamesAsHeader: false,",
+				"     umask: 0022,",
+				"     preCommands: [],",
+				"     postCommands: [],",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> sink"
+			]
+		}
+	}
+}

@@ -1,0 +1,15 @@
+{
+	"name": "stringLib",
+	"properties": {
+		"description": "common functions for string",
+		"type": "UDFLibrary",
+		"typeProperties": {
+			"sources": [],
+			"sinks": [],
+			"transformations": [],
+			"scriptLines": [
+				"TrimValue(string) as string = trim(coalesce(i1,\"\"))"
+			]
+		}
+	}
+}

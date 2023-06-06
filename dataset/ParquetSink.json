@@ -1,0 +1,21 @@
+{
+	"name": "ParquetSink",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "AzureDataLakeStorageWorkshop",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "Parquet",
+		"typeProperties": {
+			"location": {
+				"type": "AzureBlobFSLocation",
+				"folderPath": "Output",
+				"fileSystem": "synpswrkshp"
+			},
+			"compressionCodec": "snappy"
+		},
+		"schema": []
+	},
+	"type": "Microsoft.Synapse/workspaces/datasets"
+}
