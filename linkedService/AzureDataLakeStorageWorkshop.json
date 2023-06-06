@@ -1,16 +1,15 @@
 {
 	"name": "AzureDataLakeStorageWorkshop",
-	"type": "Microsoft.Synapse/workspaces/linkedservices",
 	"properties": {
 		"annotations": [],
 		"type": "AzureBlobFS",
 		"typeProperties": {
-			"url": "https://enteryourownstorageaccountnamehere.dfs.core.windows.net/",
-			"encryptedCredential": ""
+			"url": "https://strgdryrun.dfs.core.windows.net/"
 		},
 		"connectVia": {
 			"referenceName": "AutoResolveIntegrationRuntime",
 			"type": "IntegrationRuntimeReference"
 		}
-	}
+	},
+	"type": "Microsoft.Synapse/workspaces/linkedservices"
 }
