@@ -1,0 +1,16 @@
+{
+	"name": "AzureSqlDatabase2",
+	"type": "Microsoft.DataFactory/factories/linkedservices",
+	"properties": {
+		"annotations": [],
+		"type": "AzureSqlDatabase",
+		"typeProperties": {
+			"connectionString": "integrated security=False;encrypt=True;connection timeout=30;data source=sqlpocnonprod.database.windows.net;initial catalog=POC;user id=nonprodsqladm",
+			"encryptedCredential": "ew0KICAiVmVyc2lvbiI6ICIyMDE3LTExLTMwIiwNCiAgIlByb3RlY3Rpb25Nb2RlIjogIktleSIsDQogICJTZWNyZXRDb250ZW50VHlwZSI6ICJQbGFpbnRleHQiLA0KICAiQ3JlZGVudGlhbElkIjogIkRBVEFGQUNUT1JZQDNFNEE1RUVDLTRCRUEtNDNFOS04REMyLTZGNjU3MzVCMjJFQ185ODcxMzZmOS0zZDk4LTRmMWItODVjZC01M2M4ZWYzZWNhMzMiDQp9"
+		},
+		"connectVia": {
+			"referenceName": "integrationRuntime4",
+			"type": "IntegrationRuntimeReference"
+		}
+	}
+}
