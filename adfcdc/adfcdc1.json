@@ -55,7 +55,7 @@
 				],
 				"Connection": {
 					"linkedService": {
-						"referenceName": "AzureSqlDatabase2",
+						"referenceName": "AzureSqlDatabase1",
 						"type": "LinkedServiceReference"
 					},
 					"linkedServiceType": "AzureSqlDatabase",
@@ -98,17 +98,17 @@
 			{
 				"TargetEntities": [
 					{
-						"name": "cdcdemo/customers",
+						"name": "synpswrkshp/customers",
 						"properties": {
 							"schema": [],
 							"dslConnectorProperties": [
 								{
 									"name": "container",
-									"value": "cdcdemo"
+									"value": "synpswrkshp"
 								},
 								{
 									"name": "fileSystem",
-									"value": "cdcdemo"
+									"value": "synpswrkshp"
 								},
 								{
 									"name": "folderPath",
@@ -140,21 +140,21 @@
 						}
 					},
 					{
-						"name": "cdcdemo/stockitem",
+						"name": "synpswrkshp/salesstkitmhol",
 						"properties": {
 							"schema": [],
 							"dslConnectorProperties": [
 								{
 									"name": "container",
-									"value": "cdcdemo"
+									"value": "synpswrkshp"
 								},
 								{
 									"name": "fileSystem",
-									"value": "cdcdemo"
+									"value": "synpswrkshp"
 								},
 								{
 									"name": "folderPath",
-									"value": "stockitem"
+									"value": "salesstkitmhol"
 								},
 								{
 									"name": "deletable",
@@ -184,7 +184,7 @@
 				],
 				"Connection": {
 					"linkedService": {
-						"referenceName": "AzureBlobStorage1",
+						"referenceName": "linkedService1",
 						"type": "LinkedServiceReference"
 					},
 					"linkedServiceType": "AzureBlobStorage",
@@ -243,10 +243,10 @@
 				},
 				"DataMapperMappings": [
 					{
-						"targetEntityName": "cdcdemo/customers",
+						"targetEntityName": "synpswrkshp/customers",
 						"sourceEntityName": "dbo.customers",
 						"sourceConnectionReference": {
-							"connectionName": "AzureSqlDatabase2",
+							"connectionName": "AzureSqlDatabase1",
 							"type": "linkedservicetype"
 						},
 						"attributeMappingInfo": {
@@ -254,10 +254,10 @@
 						}
 					},
 					{
-						"targetEntityName": "cdcdemo/stockitem",
+						"targetEntityName": "synpswrkshp/salesstkitmhol",
 						"sourceEntityName": "sales.StockItemHoldings",
 						"sourceConnectionReference": {
-							"connectionName": "AzureSqlDatabase2",
+							"connectionName": "AzureSqlDatabase1",
 							"type": "linkedservicetype"
 						},
 						"attributeMappingInfo": {
@@ -275,6 +275,8 @@
 			},
 			"mode": "Microbatch"
 		},
-		"allowVNetOverride": false
+		"status": "Stopped",
+		"allowVNetOverride": false,
+		"id": "cfd4cce0591342f48cfdac8043e01e84"
 	}
 }
