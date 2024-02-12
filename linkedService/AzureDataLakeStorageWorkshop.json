@@ -4,10 +4,10 @@
 		"annotations": [],
 		"type": "AzureBlobFS",
 		"typeProperties": {
-			"url": "https://stgwrkshpmcp.dfs.core.windows.net/"
+			"url": "https://stgwrkshp.dfs.core.windows.net/"
 		},
 		"connectVia": {
-			"referenceName": "integrationRuntime3",
+			"referenceName": "integrationRuntime5",
 			"type": "IntegrationRuntimeReference"
 		}
 	},
