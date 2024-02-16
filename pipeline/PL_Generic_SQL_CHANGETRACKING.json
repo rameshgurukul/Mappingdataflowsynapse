@@ -1,0 +1,485 @@
+{
+	"name": "PL_Generic_SQL_CHANGETRACKING",
+	"properties": {
+		"activities": [
+			{
+				"name": "LookupCurrentChangeTrackingVersionActivity",
+				"type": "Lookup",
+				"dependsOn": [
+					{
+						"activity": "LookupLastChangeTrackingVersionActivity",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "SqlServerSource",
+						"sqlReaderQuery": "SELECT CHANGE_TRACKING_CURRENT_VERSION() as CurrentChangeTrackingVersion",
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"dataset": {
+						"referenceName": "DS_SQL_Generic",
+						"type": "DatasetReference",
+						"parameters": {
+							"ServerName": {
+								"value": "@pipeline().parameters.ServerName",
+								"type": "Expression"
+							},
+							"DBName": {
+								"value": "@pipeline().parameters.DBName",
+								"type": "Expression"
+							},
+							"SchemaName": {
+								"value": "@pipeline().parameters.SchemaName",
+								"type": "Expression"
+							},
+							"TableName": {
+								"value": "@pipeline().parameters.TableName",
+								"type": "Expression"
+							}
+						}
+					}
+				}
+			},
+			{
+				"name": "LookupLastChangeTrackingVersionActivity",
+				"type": "Lookup",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "SqlServerSource",
+						"sqlReaderQuery": {
+							"value": "\nSelect * from table_store_ChangeTracking_version where TableName= '@{pipeline().parameters.TableName}'",
+							"type": "Expression"
+						},
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"dataset": {
+						"referenceName": "DS_SQL_Config",
+						"type": "DatasetReference"
+					}
+				}
+			},
+			{
+				"name": "Incremental Data Copy",
+				"type": "Copy",
+				"dependsOn": [
+					{
+						"activity": "LookupCurrentChangeTrackingVersionActivity",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "SqlServerSource",
+						"sqlReaderQuery": {
+							"value": "SELECT c.*,CT.SYS_CHANGE_VERSION, SYS_CHANGE_OPERATION , CT.@{pipeline().parameters.ChangeColumnName} as  'PrimaryKeyValue'\n\nfrom @{pipeline().parameters.TableName}  c\n\nRIGHT OUTER JOIN \n\nCHANGETABLE(CHANGES @{pipeline().parameters.TableName} , @{activity('LookupLastChangeTrackingVersionActivity').output.firstRow.SYS_CHANGE_VERSION}) AS CT \n\nON c.@{pipeline().parameters.ChangeColumnName}  = CT.@{pipeline().parameters.ChangeColumnName}  where CT.SYS_CHANGE_VERSION <= @{activity('LookupCurrentChangeTrackingVersionActivity').output.firstRow.CurrentChangeTrackingVersion}\n",
+							"type": "Expression"
+						},
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"sink": {
+						"type": "ParquetSink",
+						"storeSettings": {
+							"type": "AzureBlobFSWriteSettings"
+						},
+						"formatSettings": {
+							"type": "ParquetWriteSettings"
+						}
+					},
+					"enableStaging": false,
+					"translator": {
+						"type": "TabularTranslator",
+						"typeConversion": true,
+						"typeConversionSettings": {
+							"allowDataTruncation": true,
+							"treatBooleanAsNumber": false
+						}
+					}
+				},
+				"inputs": [
+					{
+						"referenceName": "DS_SQL_Generic",
+						"type": "DatasetReference",
+						"parameters": {
+							"ServerName": {
+								"value": "@pipeline().parameters.ServerName",
+								"type": "Expression"
+							},
+							"DBName": {
+								"value": "@pipeline().parameters.DBName",
+								"type": "Expression"
+							},
+							"SchemaName": {
+								"value": "@pipeline().parameters.SchemaName",
+								"type": "Expression"
+							},
+							"TableName": {
+								"value": "@pipeline().parameters.TableName",
+								"type": "Expression"
+							}
+						}
+					}
+				],
+				"outputs": [
+					{
+						"referenceName": "DS_ADLSGEN2",
+						"type": "DatasetReference",
+						"parameters": {
+							"ADLSContainerName": {
+								"value": "@pipeline().parameters.ADLSContainerName",
+								"type": "Expression"
+							},
+							"DirectoryName": {
+								"value": "@concat(pipeline().parameters.TableName,'/','year=',formatDateTime(utcnow(),'yyyy'),'/','month=',formatDateTime(utcnow(),'MM'),'/','day=',formatDateTime(utcnow(),'dd'))",
+								"type": "Expression"
+							}
+						}
+					}
+				]
+			},
+			{
+				"name": "updatechnagetracking",
+				"type": "SqlServerStoredProcedure",
+				"dependsOn": [
+					{
+						"activity": "Incremental Data Copy",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"storedProcedureName": "[dbo].[Update_ChangeTracking_Version]",
+					"storedProcedureParameters": {
+						"CurrentTrackingVersion": {
+							"value": {
+								"value": "@activity('LookupCurrentChangeTrackingVersionActivity').output.firstRow.CurrentChangeTrackingVersion",
+								"type": "Expression"
+							},
+							"type": "Int64"
+						},
+						"TableName": {
+							"value": {
+								"value": "@pipeline().parameters.TableName",
+								"type": "Expression"
+							},
+							"type": "String"
+						}
+					}
+				},
+				"linkedServiceName": {
+					"referenceName": "SqlServerconfig",
+					"type": "LinkedServiceReference"
+				}
+			},
+			{
+				"name": "Insert Log Success",
+				"type": "SqlServerStoredProcedure",
+				"dependsOn": [
+					{
+						"activity": "updatechnagetracking",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"storedProcedureName": "[dbo].[InsertLog]",
+					"storedProcedureParameters": {
+						"BronzeCount": {
+							"value": {
+								"value": "@activity('Incremental Data Copy').output.rowsCopied",
+								"type": "Expression"
+							},
+							"type": "Int64"
+						},
+						"DbName": {
+							"value": {
+								"value": "@pipeline().parameters.DBName",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"RunStatus": {
+							"value": "Sucess",
+							"type": "String"
+						},
+						"ServerName": {
+							"value": {
+								"value": "@pipeline().parameters.ServerName",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"SourceCount": {
+							"value": {
+								"value": "@activity('Incremental Data Copy').output.rowsRead\n",
+								"type": "Expression"
+							},
+							"type": "Int64"
+						},
+						"TableName": {
+							"value": {
+								"value": "@pipeline().parameters.TableName",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"error": {
+							"value": {
+								"value": "@activity('Incremental Data Copy').error?.message",
+								"type": "Expression"
+							},
+							"type": "String"
+						}
+					}
+				},
+				"linkedServiceName": {
+					"referenceName": "SqlServerconfig",
+					"type": "LinkedServiceReference"
+				}
+			},
+			{
+				"name": "Insert Log Failure",
+				"type": "SqlServerStoredProcedure",
+				"dependsOn": [
+					{
+						"activity": "updatechnagetracking",
+						"dependencyConditions": [
+							"Failed"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"storedProcedureName": "[dbo].[InsertLog]",
+					"storedProcedureParameters": {
+						"BronzeCount": {
+							"value": {
+								"value": "@activity('Incremental Data Copy').output?.rowsCopied",
+								"type": "Expression"
+							},
+							"type": "Int64"
+						},
+						"DbName": {
+							"value": {
+								"value": "@pipeline().parameters.DBName",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"RunStatus": {
+							"value": "Failure",
+							"type": "String"
+						},
+						"ServerName": {
+							"value": {
+								"value": "@pipeline().parameters.ServerName",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"SourceCount": {
+							"value": {
+								"value": "@activity('Incremental Data Copy').output?.rowsRead",
+								"type": "Expression"
+							},
+							"type": "Int64"
+						},
+						"TableName": {
+							"value": {
+								"value": "@pipeline().parameters.TableName",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"error": {
+							"value": {
+								"value": "@activity('Incremental Data Copy').error?.message",
+								"type": "Expression"
+							},
+							"type": "String"
+						}
+					}
+				},
+				"linkedServiceName": {
+					"referenceName": "SqlServerconfig",
+					"type": "LinkedServiceReference"
+				}
+			},
+			{
+				"name": "Copy data to staging for incremental processing",
+				"type": "Copy",
+				"dependsOn": [
+					{
+						"activity": "updatechnagetracking",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "ParquetSource",
+						"storeSettings": {
+							"type": "AzureBlobFSReadSettings",
+							"recursive": true,
+							"wildcardFolderPath": {
+								"value": "@concat(pipeline().parameters.TableName,'/','year=',formatDateTime(utcnow(),'yyyy'),'/','month=',formatDateTime(utcnow(),'MM'),'/','day=',formatDateTime(utcnow(),'dd'))",
+								"type": "Expression"
+							},
+							"wildcardFileName": "*.parquet",
+							"enablePartitionDiscovery": false
+						}
+					},
+					"sink": {
+						"type": "ParquetSink",
+						"storeSettings": {
+							"type": "AzureBlobFSWriteSettings"
+						},
+						"formatSettings": {
+							"type": "ParquetWriteSettings"
+						}
+					},
+					"enableStaging": false,
+					"translator": {
+						"type": "TabularTranslator",
+						"typeConversion": true,
+						"typeConversionSettings": {
+							"allowDataTruncation": true,
+							"treatBooleanAsNumber": false
+						}
+					}
+				},
+				"inputs": [
+					{
+						"referenceName": "DS_ADLSGEN2",
+						"type": "DatasetReference",
+						"parameters": {
+							"ADLSContainerName": "@pipeline().parameters.ADLSContainerName",
+							"DirectoryName": "@concat(pipeline().parameters.TableName,'/','year=',formatDateTime(utcnow(),'yyyy'),'/','month=',formatDateTime(utcnow(),'MM'),'/','day=',formatDateTime(utcnow(),'dd'))"
+						}
+					}
+				],
+				"outputs": [
+					{
+						"referenceName": "DS_ADLSGEN2",
+						"type": "DatasetReference",
+						"parameters": {
+							"ADLSContainerName": {
+								"value": "@pipeline().parameters.StageDirectoryName",
+								"type": "Expression"
+							},
+							"DirectoryName": {
+								"value": "@concat(pipeline().parameters.ServerName,'/',pipeline().parameters.TableName)",
+								"type": "Expression"
+							}
+						}
+					}
+				]
+			}
+		],
+		"parameters": {
+			"ServerName": {
+				"type": "string",
+				"defaultValue": "sqlpocnonprod.database.windows.net"
+			},
+			"DBName": {
+				"type": "string",
+				"defaultValue": "POC"
+			},
+			"SchemaName": {
+				"type": "string",
+				"defaultValue": "dbo"
+			},
+			"TableName": {
+				"type": "string",
+				"defaultValue": "source_table"
+			},
+			"ADLSContainerName": {
+				"type": "string",
+				"defaultValue": "landingbronze"
+			},
+			"ADLSDirectoryName": {
+				"type": "string"
+			},
+			"StageDirectoryName": {
+				"type": "string",
+				"defaultValue": "stgprocessing"
+			},
+			"ChangeColumnName": {
+				"type": "String",
+				"defaultValue": "PersonID"
+			}
+		},
+		"variables": {
+			"LSNVal": {
+				"type": "String"
+			}
+		},
+		"annotations": []
+	}
+}

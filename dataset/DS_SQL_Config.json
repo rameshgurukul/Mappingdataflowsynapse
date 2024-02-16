@@ -1,0 +1,70 @@
+{
+	"name": "DS_SQL_Config",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "SqlServerconfig",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "SqlServerTable",
+		"schema": [
+			{
+				"name": "TableID",
+				"type": "int",
+				"precision": 10
+			},
+			{
+				"name": "SourceServerName",
+				"type": "varchar"
+			},
+			{
+				"name": "SourceDBName",
+				"type": "varchar"
+			},
+			{
+				"name": "SourceTableName",
+				"type": "varchar"
+			},
+			{
+				"name": "SchemaName",
+				"type": "varchar"
+			},
+			{
+				"name": "PartitionColumnName",
+				"type": "varchar"
+			},
+			{
+				"name": "PartitionLowerBound",
+				"type": "varchar"
+			},
+			{
+				"name": "PartitionUpperBound",
+				"type": "varchar"
+			},
+			{
+				"name": "ADLSContainerName",
+				"type": "varchar"
+			},
+			{
+				"name": "ADLSStoragePath",
+				"type": "varchar"
+			},
+			{
+				"name": "ADLSArchivalPath",
+				"type": "varchar"
+			},
+			{
+				"name": "CopyMode",
+				"type": "varchar"
+			},
+			{
+				"name": "DeltaColumnName",
+				"type": "varchar"
+			}
+		],
+		"typeProperties": {
+			"schema": "dbo",
+			"table": "ControlTable"
+		}
+	}
+}
