@@ -20,7 +20,7 @@
 						"type": "DataFlowReference"
 					},
 					"integrationRuntime": {
-						"referenceName": "integrationRuntime6",
+						"referenceName": "dataflowruntime",
 						"type": "IntegrationRuntimeReference"
 					},
 					"traceLevel": "Fine"
