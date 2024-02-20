@@ -20,69 +20,7 @@
 						"type": "DataFlowReference"
 					},
 					"integrationRuntime": {
-						"referenceName": "DataFlowWarmPoolIntegrationRuntime",
-						"type": "IntegrationRuntimeReference"
-					},
-					"traceLevel": "Fine"
-				}
-			},
-			{
-				"name": "Data flow_copy1",
-				"type": "ExecuteDataFlow",
-				"dependsOn": [
-					{
-						"activity": "Data flow",
-						"dependencyConditions": [
-							"Succeeded"
-						]
-					}
-				],
-				"policy": {
-					"timeout": "0.12:00:00",
-					"retry": 0,
-					"retryIntervalInSeconds": 30,
-					"secureOutput": false,
-					"secureInput": false
-				},
-				"userProperties": [],
-				"typeProperties": {
-					"dataflow": {
-						"referenceName": "Dataflow_WarmUpCluster",
-						"type": "DataFlowReference"
-					},
-					"integrationRuntime": {
-						"referenceName": "DataFlowWarmPoolIntegrationRuntime",
-						"type": "IntegrationRuntimeReference"
-					},
-					"traceLevel": "Fine"
-				}
-			},
-			{
-				"name": "Data flow_copy1_copy1",
-				"type": "ExecuteDataFlow",
-				"dependsOn": [
-					{
-						"activity": "Data flow_copy1",
-						"dependencyConditions": [
-							"Succeeded"
-						]
-					}
-				],
-				"policy": {
-					"timeout": "0.12:00:00",
-					"retry": 0,
-					"retryIntervalInSeconds": 30,
-					"secureOutput": false,
-					"secureInput": false
-				},
-				"userProperties": [],
-				"typeProperties": {
-					"dataflow": {
-						"referenceName": "Dataflow_WarmUpCluster",
-						"type": "DataFlowReference"
-					},
-					"integrationRuntime": {
-						"referenceName": "DataFlowWarmPoolIntegrationRuntime",
+						"referenceName": "dataflowruntime",
 						"type": "IntegrationRuntimeReference"
 					},
 					"traceLevel": "Fine"
