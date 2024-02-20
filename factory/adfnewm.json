@@ -1,6 +1,12 @@
 {
 	"name": "adfnewm",
 	"properties": {
+		"globalParameters": {
+			"testparam": {
+				"type": "string",
+				"value": "123"
+			}
+		},
 		"globalConfigurations": {
 			"PipelineBillingEnabled": "true"
 		}
