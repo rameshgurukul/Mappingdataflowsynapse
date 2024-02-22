@@ -1,8 +1,15 @@
 {
 	"name": "adfnewm",
 	"properties": {
+		"globalParameters": {
+			"testparam": {
+				"type": "string",
+				"value": "123"
+			}
+		},
 		"globalConfigurations": {
-			"PipelineBillingEnabled": "true"
+			"PipelineBillingEnabled": "true",
+			"PolicyValidationEnabled": "true"
 		}
 	},
 	"location": "eastus",

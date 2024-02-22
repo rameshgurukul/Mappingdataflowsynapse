@@ -1,5 +1,6 @@
 {
 	"name": "AzureDataLakeStorageWorkshop",
+	"type": "Microsoft.DataFactory/factories/linkedservices",
 	"properties": {
 		"annotations": [],
 		"type": "AzureBlobFS",
@@ -7,9 +8,8 @@
 			"url": "https://stgwrkshp.dfs.core.windows.net/"
 		},
 		"connectVia": {
-			"referenceName": "integrationRuntime6",
+			"referenceName": "integrationRuntime5",
 			"type": "IntegrationRuntimeReference"
 		}
-	},
-	"type": "Microsoft.Synapse/workspaces/linkedservices"
+	}
 }

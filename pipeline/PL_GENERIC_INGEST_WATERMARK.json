@@ -1,0 +1,485 @@
+{
+	"name": "PL_GENERIC_INGEST_WATERMARK",
+	"properties": {
+		"activities": [
+			{
+				"name": "Lookup Previous Watermark Value",
+				"type": "Lookup",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "SqlServerSource",
+						"sqlReaderQuery": {
+							"value": "select * from dbo.table_store_watermark_value where TableName= '@{pipeline().parameters.TableName}' and servername = '@{pipeline().parameters.ServerName}'",
+							"type": "Expression"
+						},
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"dataset": {
+						"referenceName": "DS_SQL_Config",
+						"type": "DatasetReference"
+					}
+				}
+			},
+			{
+				"name": "Lookup Current Watermark Value",
+				"type": "Lookup",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "SqlServerSource",
+						"sqlReaderQuery": {
+							"value": "select MAX(@{pipeline().parameters.WaterMarkColumnName}) as NewWatermarkvalue from @{pipeline().parameters.TableName}",
+							"type": "Expression"
+						},
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"dataset": {
+						"referenceName": "DS_SQL_Generic",
+						"type": "DatasetReference",
+						"parameters": {
+							"ServerName": {
+								"value": "@pipeline().parameters.ServerName",
+								"type": "Expression"
+							},
+							"DBName": {
+								"value": "@pipeline().parameters.DBName",
+								"type": "Expression"
+							},
+							"SchemaName": {
+								"value": "@pipeline().parameters.SchemaName",
+								"type": "Expression"
+							},
+							"TableName": {
+								"value": "@pipeline().parameters.TableName",
+								"type": "Expression"
+							}
+						}
+					}
+				}
+			},
+			{
+				"name": "Copy data incremental watermark",
+				"type": "Copy",
+				"dependsOn": [
+					{
+						"activity": "Lookup Previous Watermark Value",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					},
+					{
+						"activity": "Lookup Current Watermark Value",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "SqlServerSource",
+						"sqlReaderQuery": {
+							"value": "select * from @{pipeline().parameters.TableName} where @{pipeline().parameters.WaterMarkColumnName} > '@{activity('Lookup Previous Watermark Value').output.firstRow.WatermarkValue}' and @{pipeline().parameters.WaterMarkColumnName} <= '@{activity('Lookup Current Watermark Value').output.firstRow.NewWatermarkvalue}'",
+							"type": "Expression"
+						},
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"sink": {
+						"type": "ParquetSink",
+						"storeSettings": {
+							"type": "AzureBlobFSWriteSettings"
+						},
+						"formatSettings": {
+							"type": "ParquetWriteSettings"
+						}
+					},
+					"enableStaging": false,
+					"translator": {
+						"type": "TabularTranslator",
+						"typeConversion": true,
+						"typeConversionSettings": {
+							"allowDataTruncation": true,
+							"treatBooleanAsNumber": false
+						}
+					}
+				},
+				"inputs": [
+					{
+						"referenceName": "DS_SQL_Generic",
+						"type": "DatasetReference",
+						"parameters": {
+							"ServerName": {
+								"value": "@pipeline().parameters.ServerName",
+								"type": "Expression"
+							},
+							"DBName": {
+								"value": "@pipeline().parameters.DBName",
+								"type": "Expression"
+							},
+							"SchemaName": {
+								"value": "@pipeline().parameters.SchemaName",
+								"type": "Expression"
+							},
+							"TableName": {
+								"value": "@pipeline().parameters.TableName",
+								"type": "Expression"
+							}
+						}
+					}
+				],
+				"outputs": [
+					{
+						"referenceName": "DS_ADLSGEN2",
+						"type": "DatasetReference",
+						"parameters": {
+							"ADLSContainerName": {
+								"value": "@pipeline().parameters.ADLSContainerName",
+								"type": "Expression"
+							},
+							"DirectoryName": "@concat(pipeline().parameters.TableName,'/','year=',formatDateTime(utcnow(),'yyyy'),'/','month=',formatDateTime(utcnow(),'MM'),'/','day=',formatDateTime(utcnow(),'dd'))"
+						}
+					}
+				]
+			},
+			{
+				"name": "Insert Log Success",
+				"type": "SqlServerStoredProcedure",
+				"dependsOn": [
+					{
+						"activity": "Update WaterMark Value",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"storedProcedureName": "[dbo].[InsertLog]",
+					"storedProcedureParameters": {
+						"BronzeCount": {
+							"value": {
+								"value": "@activity('Copy data incremental watermark').output.rowsCopied",
+								"type": "Expression"
+							},
+							"type": "Int64"
+						},
+						"DbName": {
+							"value": {
+								"value": "@pipeline().parameters.DBName",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"RunStatus": {
+							"value": "Sucess",
+							"type": "String"
+						},
+						"ServerName": {
+							"value": {
+								"value": "@pipeline().parameters.ServerName",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"SourceCount": {
+							"value": {
+								"value": "@activity('Copy data incremental watermark').output.rowsRead",
+								"type": "Expression"
+							},
+							"type": "Int64"
+						},
+						"TableName": {
+							"value": {
+								"value": "@pipeline().parameters.TableName",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"error": {
+							"value": "",
+							"type": "String"
+						}
+					}
+				},
+				"linkedServiceName": {
+					"referenceName": "SqlServerconfig",
+					"type": "LinkedServiceReference"
+				}
+			},
+			{
+				"name": "Insert Log Failure",
+				"type": "SqlServerStoredProcedure",
+				"dependsOn": [
+					{
+						"activity": "Copy data incremental watermark",
+						"dependencyConditions": [
+							"Failed"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"storedProcedureName": "[dbo].[InsertLog]",
+					"storedProcedureParameters": {
+						"BronzeCount": {
+							"value": {
+								"value": "@activity('Copy data incremental watermark').output?.rowsCopied",
+								"type": "Expression"
+							},
+							"type": "Int64"
+						},
+						"DbName": {
+							"value": {
+								"value": "@pipeline().parameters.DBName",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"RunStatus": {
+							"value": "Failure",
+							"type": "String"
+						},
+						"ServerName": {
+							"value": {
+								"value": "@pipeline().parameters.ServerName",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"SourceCount": {
+							"value": {
+								"value": "@activity('Copy data incremental watermark').output?.rowsRead",
+								"type": "Expression"
+							},
+							"type": "Int64"
+						},
+						"TableName": {
+							"value": {
+								"value": "@pipeline().parameters.TableName",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"error": {
+							"value": {
+								"value": "@activity('Copy data incremental watermark').error?.message",
+								"type": "Expression"
+							},
+							"type": "String"
+						}
+					}
+				},
+				"linkedServiceName": {
+					"referenceName": "SqlServerconfig",
+					"type": "LinkedServiceReference"
+				}
+			},
+			{
+				"name": "Update WaterMark Value",
+				"type": "SqlServerStoredProcedure",
+				"dependsOn": [
+					{
+						"activity": "Copy data incremental watermark",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"storedProcedureName": "[dbo].[Update_WaterMark_Value]",
+					"storedProcedureParameters": {
+						"serverName": {
+							"value": {
+								"value": "@pipeline().parameters.ServerName",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"TableName": {
+							"value": {
+								"value": "@pipeline().parameters.TableName",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"watermark": {
+							"value": {
+								"value": "@activity('Lookup Current Watermark Value').output.firstRow.NewWatermarkvalue",
+								"type": "Expression"
+							},
+							"type": "DateTime"
+						}
+					}
+				},
+				"linkedServiceName": {
+					"referenceName": "SqlServerconfig",
+					"type": "LinkedServiceReference"
+				}
+			},
+			{
+				"name": "Copy data to staging for incremental processing",
+				"type": "Copy",
+				"dependsOn": [
+					{
+						"activity": "Update WaterMark Value",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "ParquetSource",
+						"storeSettings": {
+							"type": "AzureBlobFSReadSettings",
+							"recursive": true,
+							"wildcardFolderPath": {
+								"value": "@concat(pipeline().parameters.TableName,'/','year=',formatDateTime(utcnow(),'yyyy'),'/','month=',formatDateTime(utcnow(),'MM'),'/','day=',formatDateTime(utcnow(),'dd'))",
+								"type": "Expression"
+							},
+							"wildcardFileName": "*.parquet",
+							"enablePartitionDiscovery": false
+						}
+					},
+					"sink": {
+						"type": "ParquetSink",
+						"storeSettings": {
+							"type": "AzureBlobFSWriteSettings"
+						},
+						"formatSettings": {
+							"type": "ParquetWriteSettings"
+						}
+					},
+					"enableStaging": false,
+					"translator": {
+						"type": "TabularTranslator",
+						"typeConversion": true,
+						"typeConversionSettings": {
+							"allowDataTruncation": true,
+							"treatBooleanAsNumber": false
+						}
+					}
+				},
+				"inputs": [
+					{
+						"referenceName": "DS_ADLSGEN2",
+						"type": "DatasetReference",
+						"parameters": {
+							"ADLSContainerName": "@pipeline().parameters.ADLSContainerName",
+							"DirectoryName": "@concat(pipeline().parameters.TableName,'/','year=',formatDateTime(utcnow(),'yyyy'),'/','month=',formatDateTime(utcnow(),'MM'),'/','day=',formatDateTime(utcnow(),'dd'))"
+						}
+					}
+				],
+				"outputs": [
+					{
+						"referenceName": "DS_ADLSGEN2",
+						"type": "DatasetReference",
+						"parameters": {
+							"ADLSContainerName": {
+								"value": "@pipeline().parameters.StageDirectoryName",
+								"type": "Expression"
+							},
+							"DirectoryName": {
+								"value": "@concat(pipeline().parameters.ServerName,'/',pipeline().parameters.TableName)",
+								"type": "Expression"
+							}
+						}
+					}
+				]
+			}
+		],
+		"parameters": {
+			"ServerName": {
+				"type": "string",
+				"defaultValue": "sqlpocnonprod.database.windows.net"
+			},
+			"DBName": {
+				"type": "string",
+				"defaultValue": "POC"
+			},
+			"SchemaName": {
+				"type": "string",
+				"defaultValue": "dbo"
+			},
+			"TableName": {
+				"type": "string",
+				"defaultValue": "project_table"
+			},
+			"ADLSContainerName": {
+				"type": "string",
+				"defaultValue": "landingbronze"
+			},
+			"ADLSDirectoryName": {
+				"type": "string"
+			},
+			"StageDirectoryName": {
+				"type": "string",
+				"defaultValue": "stgprocessing"
+			},
+			"WaterMarkColumnName": {
+				"type": "string",
+				"defaultValue": "Creationtime"
+			}
+		},
+		"annotations": [],
+		"lastPublishTime": "2024-02-20T15:44:07Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}
