@@ -1,0 +1,3395 @@
+{
+	"$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"workspaceName": {
+			"type": "string",
+			"metadata": "Workspace name",
+			"defaultValue": "synapsepoclrn"
+		},
+		"LS_SQL_Config": {
+			"type": "string"
+		},
+		"LS_SQL_GENERIC": {
+			"type": "string"
+		},
+		"LS_ADLS_GEN2": {
+			"type": "string"
+		},
+		"OdbcLSGEN": {
+			"type": "string"
+		},
+		"LS_FileServer_SHIR": {
+			"type": "string"
+		}
+	},
+	"variables": {
+		"workspaceId": "[concat('Microsoft.Synapse/workspaces/', parameters('workspaceName'))]"
+	},
+	"resources": [
+		{
+			"name": "[concat(parameters('workspaceName'), '/PL_Generic_Ingest_Executor')]",
+			"type": "Microsoft.Synapse/workspaces/pipelines",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"activities": [
+					{
+						"name": "Lookup Config Table",
+						"type": "Lookup",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "SqlServerSource",
+								"sqlReaderQuery": "/****** Script for SelectTopNRows command from SSMS  ******/\nSELECT *\n      \n  FROM dbo.ControlTableIntegrated where IsActive='yes'",
+								"queryTimeout": "02:00:00",
+								"partitionOption": "None"
+							},
+							"dataset": {
+								"referenceName": "DS_SQL_Config",
+								"type": "DatasetReference"
+							},
+							"firstRowOnly": false
+						}
+					},
+					{
+						"name": "ForEach Record to Ingest",
+						"type": "ForEach",
+						"dependsOn": [
+							{
+								"activity": "Lookup Config Table",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"userProperties": [],
+						"typeProperties": {
+							"items": {
+								"value": "@activity('Lookup Config Table').output.value",
+								"type": "Expression"
+							},
+							"activities": [
+								{
+									"name": "RouteJobsBasedOnCopyBehavior",
+									"type": "Switch",
+									"dependsOn": [],
+									"userProperties": [],
+									"typeProperties": {
+										"on": {
+											"value": "@item().CopyMode",
+											"type": "Expression"
+										},
+										"cases": [
+											{
+												"value": "CDC",
+												"activities": [
+													{
+														"name": "Execute Pipeline CDC",
+														"type": "ExecutePipeline",
+														"dependsOn": [],
+														"userProperties": [],
+														"typeProperties": {
+															"pipeline": {
+																"referenceName": "PL_GENERIC_SQL_CDC_INGEST",
+																"type": "PipelineReference"
+															},
+															"waitOnCompletion": true,
+															"parameters": {
+																"ServerName": {
+																	"value": "@item().SourceServerName",
+																	"type": "Expression"
+																},
+																"DBName": {
+																	"value": "@item().SourceDBName",
+																	"type": "Expression"
+																},
+																"SchemaName": {
+																	"value": "@item().SchemaName",
+																	"type": "Expression"
+																},
+																"TableName": {
+																	"value": "@item().SourceTableName",
+																	"type": "Expression"
+																},
+																"LSNEndTime": {
+																	"value": "@utcNow('yyyy-MM-dd HH:mm:ss:ff')",
+																	"type": "Expression"
+																},
+																"ADLSContainerName": {
+																	"value": "@item().ADLSContainerName",
+																	"type": "Expression"
+																},
+																"StageDirectoryName": {
+																	"value": "@item().StagingContainer",
+																	"type": "Expression"
+																}
+															}
+														}
+													}
+												]
+											},
+											{
+												"value": "CHANGE TRACKING",
+												"activities": [
+													{
+														"name": "Execute Pipeline Change Tracking",
+														"type": "ExecutePipeline",
+														"dependsOn": [],
+														"userProperties": [],
+														"typeProperties": {
+															"pipeline": {
+																"referenceName": "PL_Generic_SQL_CHANGETRACKING",
+																"type": "PipelineReference"
+															},
+															"waitOnCompletion": true,
+															"parameters": {
+																"ServerName": {
+																	"value": "@item().SourceServerName\n",
+																	"type": "Expression"
+																},
+																"DBName": {
+																	"value": "@item().SourceDBName",
+																	"type": "Expression"
+																},
+																"SchemaName": {
+																	"value": "@item().SchemaName",
+																	"type": "Expression"
+																},
+																"TableName": {
+																	"value": "@item().SourceTableName",
+																	"type": "Expression"
+																},
+																"ADLSContainerName": {
+																	"value": "@item().ADLSContainerName",
+																	"type": "Expression"
+																},
+																"StageDirectoryName": {
+																	"value": "@item().StagingContainer",
+																	"type": "Expression"
+																},
+																"ChangeColumnName": {
+																	"value": "@item().DeltaColumnName",
+																	"type": "Expression"
+																}
+															}
+														}
+													}
+												]
+											},
+											{
+												"value": "WATERMARK",
+												"activities": [
+													{
+														"name": "Execute Pipeline WaterMark",
+														"type": "ExecutePipeline",
+														"dependsOn": [],
+														"userProperties": [],
+														"typeProperties": {
+															"pipeline": {
+																"referenceName": "PL_GENERIC_INGEST_WATERMARK",
+																"type": "PipelineReference"
+															},
+															"waitOnCompletion": true,
+															"parameters": {
+																"ServerName": {
+																	"value": "@item().SourceServerName\n",
+																	"type": "Expression"
+																},
+																"DBName": {
+																	"value": "@item().SourceDBName",
+																	"type": "Expression"
+																},
+																"SchemaName": {
+																	"value": "@item().SchemaName",
+																	"type": "Expression"
+																},
+																"TableName": {
+																	"value": "@item().SourceTableName",
+																	"type": "Expression"
+																},
+																"ADLSContainerName": {
+																	"value": "@item().ADLSContainerName",
+																	"type": "Expression"
+																},
+																"StageDirectoryName": {
+																	"value": "@item().StagingContainer",
+																	"type": "Expression"
+																},
+																"WaterMarkColumnName": {
+																	"value": "@item().WaterMarkColumnName",
+																	"type": "Expression"
+																}
+															}
+														}
+													}
+												]
+											},
+											{
+												"value": "FULL",
+												"activities": [
+													{
+														"name": "Execute Pipeline Full",
+														"type": "ExecutePipeline",
+														"dependsOn": [],
+														"userProperties": [],
+														"typeProperties": {
+															"pipeline": {
+																"referenceName": "PL_Generic_Full_Load",
+																"type": "PipelineReference"
+															},
+															"waitOnCompletion": true,
+															"parameters": {
+																"ServerName": {
+																	"value": "@item().SourceServerName\n",
+																	"type": "Expression"
+																},
+																"DBName": {
+																	"value": "@item().SourceDBName",
+																	"type": "Expression"
+																},
+																"SchemaName": {
+																	"value": "@item().SchemaName",
+																	"type": "Expression"
+																},
+																"TableName": {
+																	"value": "@item().SourceTableName",
+																	"type": "Expression"
+																},
+																"ADLSContainerName": {
+																	"value": "@item().ADLSContainerName",
+																	"type": "Expression"
+																},
+																"ArchivalContainerName": {
+																	"value": "@item().StagingContainer",
+																	"type": "Expression"
+																},
+																"PartitionUpperBound": {
+																	"value": "@item().PartitionUpperBound",
+																	"type": "Expression"
+																},
+																"PartitionLowerBound": {
+																	"value": "@item().PartitionLowerBound",
+																	"type": "Expression"
+																},
+																"PartitionColumnName": {
+																	"value": "@item().PartitionColumnName",
+																	"type": "Expression"
+																}
+															}
+														}
+													}
+												]
+											},
+											{
+												"value": "ODBC DECRYPT",
+												"activities": [
+													{
+														"name": "Execute Pipeline Full ODBC DECRYPT",
+														"type": "ExecutePipeline",
+														"dependsOn": [],
+														"userProperties": [],
+														"typeProperties": {
+															"pipeline": {
+																"referenceName": "PL_ODBC_Decrypt_Generic",
+																"type": "PipelineReference"
+															},
+															"waitOnCompletion": true,
+															"parameters": {
+																"ServerName": {
+																	"value": "@item().SourceServerName\n",
+																	"type": "Expression"
+																},
+																"DBName": {
+																	"value": "@item().SourceDBName",
+																	"type": "Expression"
+																},
+																"SchemaName": {
+																	"value": "@item().SchemaName",
+																	"type": "Expression"
+																},
+																"TableName": {
+																	"value": "@item().SourceTableName",
+																	"type": "Expression"
+																},
+																"ADLSContainerName": {
+																	"value": "@item().ADLSContainerName",
+																	"type": "Expression"
+																},
+																"ArchivalContainerName": {
+																	"value": "@item().StagingContainer",
+																	"type": "Expression"
+																}
+															}
+														}
+													}
+												]
+											},
+											{
+												"value": "FILE",
+												"activities": [
+													{
+														"name": "Execute Pipeline File",
+														"type": "ExecutePipeline",
+														"dependsOn": [],
+														"userProperties": [],
+														"typeProperties": {
+															"pipeline": {
+																"referenceName": "PL_Generic_File_Load",
+																"type": "PipelineReference"
+															},
+															"waitOnCompletion": true,
+															"parameters": {
+																"SourceFolder": {
+																	"value": "@item().FolderPath",
+																	"type": "Expression"
+																},
+																"ADLSContainerName": {
+																	"value": "@item().ADLSContainerName",
+																	"type": "Expression"
+																},
+																"ADLSDirectoryName": {
+																	"value": "@item().ADLSStoragePath",
+																	"type": "Expression"
+																}
+															}
+														}
+													}
+												]
+											}
+										]
+									}
+								}
+							]
+						}
+					}
+				],
+				"annotations": []
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/datasets/DS_SQL_Config')]",
+				"[concat(variables('workspaceId'), '/pipelines/PL_GENERIC_SQL_CDC_INGEST')]",
+				"[concat(variables('workspaceId'), '/pipelines/PL_Generic_SQL_CHANGETRACKING')]",
+				"[concat(variables('workspaceId'), '/pipelines/PL_GENERIC_INGEST_WATERMARK')]",
+				"[concat(variables('workspaceId'), '/pipelines/PL_Generic_Full_Load')]",
+				"[concat(variables('workspaceId'), '/pipelines/PL_ODBC_Decrypt_Generic')]",
+				"[concat(variables('workspaceId'), '/pipelines/PL_Generic_File_Load')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/DS_SQL_Config')]",
+			"type": "Microsoft.Synapse/workspaces/datasets",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "[parameters('LS_SQL_Config')]",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "SqlServerTable",
+				"schema": [
+					{
+						"name": "TableID",
+						"type": "int",
+						"precision": 10
+					},
+					{
+						"name": "SourceServerName",
+						"type": "varchar"
+					},
+					{
+						"name": "SourceDBName",
+						"type": "varchar"
+					},
+					{
+						"name": "SourceTableName",
+						"type": "varchar"
+					},
+					{
+						"name": "SchemaName",
+						"type": "varchar"
+					},
+					{
+						"name": "PartitionColumnName",
+						"type": "varchar"
+					},
+					{
+						"name": "PartitionLowerBound",
+						"type": "varchar"
+					},
+					{
+						"name": "PartitionUpperBound",
+						"type": "varchar"
+					},
+					{
+						"name": "ADLSContainerName",
+						"type": "varchar"
+					},
+					{
+						"name": "ADLSStoragePath",
+						"type": "varchar"
+					},
+					{
+						"name": "ADLSArchivalPath",
+						"type": "varchar"
+					},
+					{
+						"name": "CopyMode",
+						"type": "varchar"
+					},
+					{
+						"name": "DeltaColumnName",
+						"type": "varchar"
+					}
+				],
+				"typeProperties": {
+					"schema": "dbo",
+					"table": "ControlTable"
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/PL_GENERIC_SQL_CDC_INGEST')]",
+			"type": "Microsoft.Synapse/workspaces/pipelines",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"activities": [
+					{
+						"name": "Get CDC Change Count",
+						"type": "Lookup",
+						"dependsOn": [
+							{
+								"activity": "LookupLSNCDC",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "SqlServerSource",
+								"sqlReaderQuery": {
+									"value": "@concat('DECLARE @begin_time datetime, @end_time datetime, @from_lsn binary(10), @to_lsn binary(10) ; \nSET @begin_time = ''',activity('LookupLSNCDC').output.firstRow.CDCLastRun,''';\nSET @end_time = ''',pipeline().parameters.LSNEndTime,''';\nSET @from_lsn = sys.fn_cdc_map_time_to_lsn(''smallest greater than or equal'', @begin_time);\nSET @to_lsn = sys.fn_cdc_map_time_to_lsn(''largest less than or equal'', @end_time);\nSELECT count(1) changecount FROM cdc.fn_cdc_get_net_changes_',pipeline().parameters.SchemaName,'_',pipeline().parameters.TableName,'(@from_lsn, @to_lsn, ''all'')')",
+									"type": "Expression"
+								},
+								"queryTimeout": "02:00:00",
+								"partitionOption": "None"
+							},
+							"dataset": {
+								"referenceName": "DS_SQL_Generic",
+								"type": "DatasetReference",
+								"parameters": {
+									"ServerName": {
+										"value": "@pipeline().parameters.ServerName",
+										"type": "Expression"
+									},
+									"DBName": {
+										"value": "@pipeline().parameters.DBName",
+										"type": "Expression"
+									},
+									"SchemaName": {
+										"value": "@pipeline().parameters.SchemaName",
+										"type": "Expression"
+									},
+									"TableName": {
+										"value": "@pipeline().parameters.TableName",
+										"type": "Expression"
+									}
+								}
+							}
+						}
+					},
+					{
+						"name": "If Table has changed rows",
+						"type": "IfCondition",
+						"dependsOn": [
+							{
+								"activity": "Get CDC Change Count",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"userProperties": [],
+						"typeProperties": {
+							"expression": {
+								"value": "@greater(int(activity('Get CDC Change Count').output.firstRow.changecount),0)",
+								"type": "Expression"
+							},
+							"ifTrueActivities": [
+								{
+									"name": "Copy incremental data from CDC",
+									"type": "Copy",
+									"dependsOn": [],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"source": {
+											"type": "SqlServerSource",
+											"sqlReaderQuery": {
+												"value": "@concat('DECLARE @begin_time datetime, @end_time datetime, @from_lsn binary(10), @to_lsn binary(10) ; \nSET @begin_time = ''',activity('LookupLSNCDC').output.firstRow.CDCLastRun,''';\nSET @end_time = ''',pipeline().parameters.LSNEndTime,''';\nSET @from_lsn = sys.fn_cdc_map_time_to_lsn(''smallest greater than or equal'', @begin_time);\nSET @to_lsn = sys.fn_cdc_map_time_to_lsn(''largest less than or equal'', @end_time);\nSELECT * FROM cdc.fn_cdc_get_all_changes_',pipeline().parameters.SchemaName,'_',pipeline().parameters.TableName,'(@from_lsn, @to_lsn, ''all'')')",
+												"type": "Expression"
+											},
+											"queryTimeout": "02:00:00",
+											"partitionOption": "None"
+										},
+										"sink": {
+											"type": "ParquetSink",
+											"storeSettings": {
+												"type": "AzureBlobFSWriteSettings"
+											},
+											"formatSettings": {
+												"type": "ParquetWriteSettings"
+											}
+										},
+										"enableStaging": false,
+										"translator": {
+											"type": "TabularTranslator",
+											"typeConversion": true,
+											"typeConversionSettings": {
+												"allowDataTruncation": true,
+												"treatBooleanAsNumber": false
+											}
+										}
+									},
+									"inputs": [
+										{
+											"referenceName": "DS_SQL_Generic",
+											"type": "DatasetReference",
+											"parameters": {
+												"ServerName": "@pipeline().parameters.ServerName",
+												"DBName": {
+													"value": "@pipeline().parameters.DBName",
+													"type": "Expression"
+												},
+												"SchemaName": {
+													"value": "@pipeline().parameters.SchemaName",
+													"type": "Expression"
+												},
+												"TableName": {
+													"value": "@pipeline().parameters.TableName",
+													"type": "Expression"
+												}
+											}
+										}
+									],
+									"outputs": [
+										{
+											"referenceName": "DS_ADLSGEN2",
+											"type": "DatasetReference",
+											"parameters": {
+												"ADLSContainerName": {
+													"value": "@pipeline().parameters.ADLSContainerName",
+													"type": "Expression"
+												},
+												"DirectoryName": {
+													"value": "@concat(pipeline().parameters.TableName,'/','year=',formatDateTime(utcnow(),'yyyy'),'/','month=',formatDateTime(utcnow(),'MM'),'/','day=',formatDateTime(utcnow(),'dd'))",
+													"type": "Expression"
+												}
+											}
+										}
+									]
+								},
+								{
+									"name": "Copy data to staging for incremental processing",
+									"type": "Copy",
+									"dependsOn": [
+										{
+											"activity": "Copy incremental data from CDC",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										}
+									],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"source": {
+											"type": "ParquetSource",
+											"storeSettings": {
+												"type": "AzureBlobFSReadSettings",
+												"recursive": true,
+												"wildcardFolderPath": {
+													"value": "@concat(pipeline().parameters.TableName,'/','year=',formatDateTime(utcnow(),'yyyy'),'/','month=',formatDateTime(utcnow(),'MM'),'/','day=',formatDateTime(utcnow(),'dd'))",
+													"type": "Expression"
+												},
+												"wildcardFileName": "*.parquet",
+												"enablePartitionDiscovery": false
+											}
+										},
+										"sink": {
+											"type": "ParquetSink",
+											"storeSettings": {
+												"type": "AzureBlobFSWriteSettings"
+											},
+											"formatSettings": {
+												"type": "ParquetWriteSettings"
+											}
+										},
+										"enableStaging": false,
+										"translator": {
+											"type": "TabularTranslator",
+											"typeConversion": true,
+											"typeConversionSettings": {
+												"allowDataTruncation": true,
+												"treatBooleanAsNumber": false
+											}
+										}
+									},
+									"inputs": [
+										{
+											"referenceName": "DS_ADLSGEN2",
+											"type": "DatasetReference",
+											"parameters": {
+												"ADLSContainerName": "@pipeline().parameters.ADLSContainerName",
+												"DirectoryName": "@concat(pipeline().parameters.TableName,'/','year=',formatDateTime(utcnow(),'yyyy'),'/','month=',formatDateTime(utcnow(),'MM'),'/','day=',formatDateTime(utcnow(),'dd'))"
+											}
+										}
+									],
+									"outputs": [
+										{
+											"referenceName": "DS_ADLSGEN2",
+											"type": "DatasetReference",
+											"parameters": {
+												"ADLSContainerName": {
+													"value": "@pipeline().parameters.StageDirectoryName",
+													"type": "Expression"
+												},
+												"DirectoryName": {
+													"value": "@concat(pipeline().parameters.ServerName,'/',pipeline().parameters.TableName)",
+													"type": "Expression"
+												}
+											}
+										}
+									]
+								},
+								{
+									"name": "Insert Log Success",
+									"type": "SqlServerStoredProcedure",
+									"dependsOn": [
+										{
+											"activity": "Copy incremental data from CDC",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										}
+									],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"storedProcedureName": "[[dbo].[InsertLog]",
+										"storedProcedureParameters": {
+											"BronzeCount": {
+												"value": {
+													"value": "@activity('Copy incremental data from CDC').output.rowsCopied",
+													"type": "Expression"
+												},
+												"type": "Int64"
+											},
+											"DbName": {
+												"value": {
+													"value": "@pipeline().parameters.DBName",
+													"type": "Expression"
+												},
+												"type": "String"
+											},
+											"RunStatus": {
+												"value": "Sucess",
+												"type": "String"
+											},
+											"ServerName": {
+												"value": {
+													"value": "@pipeline().parameters.ServerName",
+													"type": "Expression"
+												},
+												"type": "String"
+											},
+											"SourceCount": {
+												"value": {
+													"value": "@activity('Copy incremental data from CDC').output.rowsRead",
+													"type": "Expression"
+												},
+												"type": "Int64"
+											},
+											"TableName": {
+												"value": {
+													"value": "@pipeline().parameters.TableName",
+													"type": "Expression"
+												},
+												"type": "String"
+											},
+											"error": {
+												"value": {
+													"value": "@activity('Copy incremental data from CDC').error?.message",
+													"type": "Expression"
+												},
+												"type": "String"
+											}
+										}
+									},
+									"linkedServiceName": {
+										"referenceName": "[parameters('LS_SQL_Config')]",
+										"type": "LinkedServiceReference"
+									}
+								},
+								{
+									"name": "Insert Log Failure",
+									"type": "SqlServerStoredProcedure",
+									"dependsOn": [
+										{
+											"activity": "Copy incremental data from CDC",
+											"dependencyConditions": [
+												"Failed"
+											]
+										}
+									],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"storedProcedureName": "[[dbo].[InsertLog]",
+										"storedProcedureParameters": {
+											"BronzeCount": {
+												"value": {
+													"value": "@activity('Copy incremental data from CDC').output?.rowsCopied",
+													"type": "Expression"
+												},
+												"type": "Int64"
+											},
+											"DbName": {
+												"value": {
+													"value": "@pipeline().parameters.DBName",
+													"type": "Expression"
+												},
+												"type": "String"
+											},
+											"RunStatus": {
+												"value": "Failure",
+												"type": "String"
+											},
+											"ServerName": {
+												"value": {
+													"value": "@pipeline().parameters.ServerName",
+													"type": "Expression"
+												},
+												"type": "String"
+											},
+											"SourceCount": {
+												"value": {
+													"value": "@activity('Copy incremental data from CDC').output?.rowsRead",
+													"type": "Expression"
+												},
+												"type": "Int64"
+											},
+											"TableName": {
+												"value": {
+													"value": "@pipeline().parameters.TableName",
+													"type": "Expression"
+												},
+												"type": "String"
+											},
+											"error": {
+												"value": {
+													"value": "@activity('Copy incremental data from CDC').error?.message",
+													"type": "Expression"
+												},
+												"type": "String"
+											}
+										}
+									},
+									"linkedServiceName": {
+										"referenceName": "[parameters('LS_SQL_Config')]",
+										"type": "LinkedServiceReference"
+									}
+								},
+								{
+									"name": "Update LSN",
+									"type": "SqlServerStoredProcedure",
+									"dependsOn": [
+										{
+											"activity": "Copy incremental data from CDC",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										}
+									],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"storedProcedureName": "[[dbo].[Update_CDCLSN_Version]",
+										"storedProcedureParameters": {
+											"lsn": {
+												"value": {
+													"value": "@pipeline().parameters.LSNEndTime",
+													"type": "Expression"
+												},
+												"type": "String"
+											},
+											"serverName": {
+												"value": {
+													"value": "@pipeline().parameters.ServerName",
+													"type": "Expression"
+												},
+												"type": "String"
+											},
+											"TableName": {
+												"value": {
+													"value": "@pipeline().parameters.TableName",
+													"type": "Expression"
+												},
+												"type": "String"
+											}
+										}
+									},
+									"linkedServiceName": {
+										"referenceName": "[parameters('LS_SQL_Config')]",
+										"type": "LinkedServiceReference"
+									}
+								}
+							]
+						}
+					},
+					{
+						"name": "LookupLSNCDC",
+						"type": "Lookup",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "SqlServerSource",
+								"sqlReaderQuery": {
+									"value": "\nSelect * from dbo.table_store_CDC_version where TableName= '@{pipeline().parameters.TableName}' and servername = '@{pipeline().parameters.ServerName}'",
+									"type": "Expression"
+								},
+								"queryTimeout": "02:00:00",
+								"partitionOption": "None"
+							},
+							"dataset": {
+								"referenceName": "DS_SQL_Config",
+								"type": "DatasetReference"
+							}
+						}
+					}
+				],
+				"parameters": {
+					"ServerName": {
+						"type": "string",
+						"defaultValue": "sqlpocnonprod.database.windows.net"
+					},
+					"DBName": {
+						"type": "string",
+						"defaultValue": "POC"
+					},
+					"SchemaName": {
+						"type": "string",
+						"defaultValue": "dbo"
+					},
+					"TableName": {
+						"type": "string",
+						"defaultValue": "customers"
+					},
+					"LSNStartTime": {
+						"type": "string",
+						"defaultValue": "2023-02-18 00:17:01.087"
+					},
+					"LSNEndTime": {
+						"type": "string",
+						"defaultValue": "2023-02-20 08:37:01.087"
+					},
+					"ADLSContainerName": {
+						"type": "string",
+						"defaultValue": "landingbronze"
+					},
+					"ADLSDirectoryName": {
+						"type": "string"
+					},
+					"StageDirectoryName": {
+						"type": "string",
+						"defaultValue": "stgprocessing"
+					}
+				},
+				"variables": {
+					"LSNVal": {
+						"type": "String"
+					}
+				},
+				"annotations": []
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/datasets/DS_SQL_Generic')]",
+				"[concat(variables('workspaceId'), '/datasets/DS_SQL_Config')]",
+				"[concat(variables('workspaceId'), '/datasets/DS_ADLSGEN2')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/PL_Generic_SQL_CHANGETRACKING')]",
+			"type": "Microsoft.Synapse/workspaces/pipelines",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"activities": [
+					{
+						"name": "LookupCurrentChangeTrackingVersionActivity",
+						"type": "Lookup",
+						"dependsOn": [
+							{
+								"activity": "LookupLastChangeTrackingVersionActivity",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "SqlServerSource",
+								"sqlReaderQuery": "SELECT CHANGE_TRACKING_CURRENT_VERSION() as CurrentChangeTrackingVersion",
+								"queryTimeout": "02:00:00",
+								"partitionOption": "None"
+							},
+							"dataset": {
+								"referenceName": "DS_SQL_Generic",
+								"type": "DatasetReference",
+								"parameters": {
+									"ServerName": {
+										"value": "@pipeline().parameters.ServerName",
+										"type": "Expression"
+									},
+									"DBName": {
+										"value": "@pipeline().parameters.DBName",
+										"type": "Expression"
+									},
+									"SchemaName": {
+										"value": "@pipeline().parameters.SchemaName",
+										"type": "Expression"
+									},
+									"TableName": {
+										"value": "@pipeline().parameters.TableName",
+										"type": "Expression"
+									}
+								}
+							}
+						}
+					},
+					{
+						"name": "LookupLastChangeTrackingVersionActivity",
+						"type": "Lookup",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "SqlServerSource",
+								"sqlReaderQuery": {
+									"value": "\nSelect * from table_store_ChangeTracking_version where TableName= '@{pipeline().parameters.TableName}'",
+									"type": "Expression"
+								},
+								"queryTimeout": "02:00:00",
+								"partitionOption": "None"
+							},
+							"dataset": {
+								"referenceName": "DS_SQL_Config",
+								"type": "DatasetReference"
+							}
+						}
+					},
+					{
+						"name": "Incremental Data Copy",
+						"type": "Copy",
+						"dependsOn": [
+							{
+								"activity": "LookupCurrentChangeTrackingVersionActivity",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "SqlServerSource",
+								"sqlReaderQuery": {
+									"value": "SELECT c.*,CT.SYS_CHANGE_VERSION, SYS_CHANGE_OPERATION , CT.@{pipeline().parameters.ChangeColumnName} as  'PrimaryKeyValue'\n\nfrom @{pipeline().parameters.TableName}  c\n\nRIGHT OUTER JOIN \n\nCHANGETABLE(CHANGES @{pipeline().parameters.TableName} , @{activity('LookupLastChangeTrackingVersionActivity').output.firstRow.SYS_CHANGE_VERSION}) AS CT \n\nON c.@{pipeline().parameters.ChangeColumnName}  = CT.@{pipeline().parameters.ChangeColumnName}  where CT.SYS_CHANGE_VERSION <= @{activity('LookupCurrentChangeTrackingVersionActivity').output.firstRow.CurrentChangeTrackingVersion}\n",
+									"type": "Expression"
+								},
+								"queryTimeout": "02:00:00",
+								"partitionOption": "None"
+							},
+							"sink": {
+								"type": "ParquetSink",
+								"storeSettings": {
+									"type": "AzureBlobFSWriteSettings"
+								},
+								"formatSettings": {
+									"type": "ParquetWriteSettings"
+								}
+							},
+							"enableStaging": false,
+							"translator": {
+								"type": "TabularTranslator",
+								"typeConversion": true,
+								"typeConversionSettings": {
+									"allowDataTruncation": true,
+									"treatBooleanAsNumber": false
+								}
+							}
+						},
+						"inputs": [
+							{
+								"referenceName": "DS_SQL_Generic",
+								"type": "DatasetReference",
+								"parameters": {
+									"ServerName": {
+										"value": "@pipeline().parameters.ServerName",
+										"type": "Expression"
+									},
+									"DBName": {
+										"value": "@pipeline().parameters.DBName",
+										"type": "Expression"
+									},
+									"SchemaName": {
+										"value": "@pipeline().parameters.SchemaName",
+										"type": "Expression"
+									},
+									"TableName": {
+										"value": "@pipeline().parameters.TableName",
+										"type": "Expression"
+									}
+								}
+							}
+						],
+						"outputs": [
+							{
+								"referenceName": "DS_ADLSGEN2",
+								"type": "DatasetReference",
+								"parameters": {
+									"ADLSContainerName": {
+										"value": "@pipeline().parameters.ADLSContainerName",
+										"type": "Expression"
+									},
+									"DirectoryName": {
+										"value": "@concat(pipeline().parameters.TableName,'/','year=',formatDateTime(utcnow(),'yyyy'),'/','month=',formatDateTime(utcnow(),'MM'),'/','day=',formatDateTime(utcnow(),'dd'))",
+										"type": "Expression"
+									}
+								}
+							}
+						]
+					},
+					{
+						"name": "updatechnagetracking",
+						"type": "SqlServerStoredProcedure",
+						"dependsOn": [
+							{
+								"activity": "Incremental Data Copy",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"storedProcedureName": "[[dbo].[Update_ChangeTracking_Version]",
+							"storedProcedureParameters": {
+								"CurrentTrackingVersion": {
+									"value": {
+										"value": "@activity('LookupCurrentChangeTrackingVersionActivity').output.firstRow.CurrentChangeTrackingVersion",
+										"type": "Expression"
+									},
+									"type": "Int64"
+								},
+								"TableName": {
+									"value": {
+										"value": "@pipeline().parameters.TableName",
+										"type": "Expression"
+									},
+									"type": "String"
+								}
+							}
+						},
+						"linkedServiceName": {
+							"referenceName": "[parameters('LS_SQL_Config')]",
+							"type": "LinkedServiceReference"
+						}
+					},
+					{
+						"name": "Insert Log Success",
+						"type": "SqlServerStoredProcedure",
+						"dependsOn": [
+							{
+								"activity": "updatechnagetracking",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"storedProcedureName": "[[dbo].[InsertLog]",
+							"storedProcedureParameters": {
+								"BronzeCount": {
+									"value": {
+										"value": "@activity('Incremental Data Copy').output.rowsCopied",
+										"type": "Expression"
+									},
+									"type": "Int64"
+								},
+								"DbName": {
+									"value": {
+										"value": "@pipeline().parameters.DBName",
+										"type": "Expression"
+									},
+									"type": "String"
+								},
+								"RunStatus": {
+									"value": "Sucess",
+									"type": "String"
+								},
+								"ServerName": {
+									"value": {
+										"value": "@pipeline().parameters.ServerName",
+										"type": "Expression"
+									},
+									"type": "String"
+								},
+								"SourceCount": {
+									"value": {
+										"value": "@activity('Incremental Data Copy').output.rowsRead\n",
+										"type": "Expression"
+									},
+									"type": "Int64"
+								},
+								"TableName": {
+									"value": {
+										"value": "@pipeline().parameters.TableName",
+										"type": "Expression"
+									},
+									"type": "String"
+								},
+								"error": {
+									"value": {
+										"value": "@activity('Incremental Data Copy').error?.message",
+										"type": "Expression"
+									},
+									"type": "String"
+								}
+							}
+						},
+						"linkedServiceName": {
+							"referenceName": "[parameters('LS_SQL_Config')]",
+							"type": "LinkedServiceReference"
+						}
+					},
+					{
+						"name": "Insert Log Failure",
+						"type": "SqlServerStoredProcedure",
+						"dependsOn": [
+							{
+								"activity": "updatechnagetracking",
+								"dependencyConditions": [
+									"Failed"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"storedProcedureName": "[[dbo].[InsertLog]",
+							"storedProcedureParameters": {
+								"BronzeCount": {
+									"value": {
+										"value": "@activity('Incremental Data Copy').output?.rowsCopied",
+										"type": "Expression"
+									},
+									"type": "Int64"
+								},
+								"DbName": {
+									"value": {
+										"value": "@pipeline().parameters.DBName",
+										"type": "Expression"
+									},
+									"type": "String"
+								},
+								"RunStatus": {
+									"value": "Failure",
+									"type": "String"
+								},
+								"ServerName": {
+									"value": {
+										"value": "@pipeline().parameters.ServerName",
+										"type": "Expression"
+									},
+									"type": "String"
+								},
+								"SourceCount": {
+									"value": {
+										"value": "@activity('Incremental Data Copy').output?.rowsRead",
+										"type": "Expression"
+									},
+									"type": "Int64"
+								},
+								"TableName": {
+									"value": {
+										"value": "@pipeline().parameters.TableName",
+										"type": "Expression"
+									},
+									"type": "String"
+								},
+								"error": {
+									"value": {
+										"value": "@activity('Incremental Data Copy').error?.message",
+										"type": "Expression"
+									},
+									"type": "String"
+								}
+							}
+						},
+						"linkedServiceName": {
+							"referenceName": "[parameters('LS_SQL_Config')]",
+							"type": "LinkedServiceReference"
+						}
+					},
+					{
+						"name": "Copy data to staging for incremental processing",
+						"type": "Copy",
+						"dependsOn": [
+							{
+								"activity": "updatechnagetracking",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "ParquetSource",
+								"storeSettings": {
+									"type": "AzureBlobFSReadSettings",
+									"recursive": true,
+									"wildcardFolderPath": {
+										"value": "@concat(pipeline().parameters.TableName,'/','year=',formatDateTime(utcnow(),'yyyy'),'/','month=',formatDateTime(utcnow(),'MM'),'/','day=',formatDateTime(utcnow(),'dd'))",
+										"type": "Expression"
+									},
+									"wildcardFileName": "*.parquet",
+									"enablePartitionDiscovery": false
+								}
+							},
+							"sink": {
+								"type": "ParquetSink",
+								"storeSettings": {
+									"type": "AzureBlobFSWriteSettings"
+								},
+								"formatSettings": {
+									"type": "ParquetWriteSettings"
+								}
+							},
+							"enableStaging": false,
+							"translator": {
+								"type": "TabularTranslator",
+								"typeConversion": true,
+								"typeConversionSettings": {
+									"allowDataTruncation": true,
+									"treatBooleanAsNumber": false
+								}
+							}
+						},
+						"inputs": [
+							{
+								"referenceName": "DS_ADLSGEN2",
+								"type": "DatasetReference",
+								"parameters": {
+									"ADLSContainerName": "@pipeline().parameters.ADLSContainerName",
+									"DirectoryName": "@concat(pipeline().parameters.TableName,'/','year=',formatDateTime(utcnow(),'yyyy'),'/','month=',formatDateTime(utcnow(),'MM'),'/','day=',formatDateTime(utcnow(),'dd'))"
+								}
+							}
+						],
+						"outputs": [
+							{
+								"referenceName": "DS_ADLSGEN2",
+								"type": "DatasetReference",
+								"parameters": {
+									"ADLSContainerName": {
+										"value": "@pipeline().parameters.StageDirectoryName",
+										"type": "Expression"
+									},
+									"DirectoryName": {
+										"value": "@concat(pipeline().parameters.ServerName,'/',pipeline().parameters.TableName)",
+										"type": "Expression"
+									}
+								}
+							}
+						]
+					}
+				],
+				"parameters": {
+					"ServerName": {
+						"type": "string",
+						"defaultValue": "sqlpocnonprod.database.windows.net"
+					},
+					"DBName": {
+						"type": "string",
+						"defaultValue": "POC"
+					},
+					"SchemaName": {
+						"type": "string",
+						"defaultValue": "dbo"
+					},
+					"TableName": {
+						"type": "string",
+						"defaultValue": "source_table"
+					},
+					"ADLSContainerName": {
+						"type": "string",
+						"defaultValue": "landingbronze"
+					},
+					"ADLSDirectoryName": {
+						"type": "string"
+					},
+					"StageDirectoryName": {
+						"type": "string",
+						"defaultValue": "stgprocessing"
+					},
+					"ChangeColumnName": {
+						"type": "String",
+						"defaultValue": "PersonID"
+					}
+				},
+				"variables": {
+					"LSNVal": {
+						"type": "String"
+					}
+				},
+				"annotations": []
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/datasets/DS_SQL_Generic')]",
+				"[concat(variables('workspaceId'), '/datasets/DS_SQL_Config')]",
+				"[concat(variables('workspaceId'), '/datasets/DS_ADLSGEN2')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/PL_GENERIC_INGEST_WATERMARK')]",
+			"type": "Microsoft.Synapse/workspaces/pipelines",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"activities": [
+					{
+						"name": "Lookup Previous Watermark Value",
+						"type": "Lookup",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "SqlServerSource",
+								"sqlReaderQuery": {
+									"value": "select * from dbo.table_store_watermark_value where TableName= '@{pipeline().parameters.TableName}' and servername = '@{pipeline().parameters.ServerName}'",
+									"type": "Expression"
+								},
+								"queryTimeout": "02:00:00",
+								"partitionOption": "None"
+							},
+							"dataset": {
+								"referenceName": "DS_SQL_Config",
+								"type": "DatasetReference"
+							}
+						}
+					},
+					{
+						"name": "Lookup Current Watermark Value",
+						"type": "Lookup",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "SqlServerSource",
+								"sqlReaderQuery": {
+									"value": "select MAX(@{pipeline().parameters.WaterMarkColumnName}) as NewWatermarkvalue from @{pipeline().parameters.TableName}",
+									"type": "Expression"
+								},
+								"queryTimeout": "02:00:00",
+								"partitionOption": "None"
+							},
+							"dataset": {
+								"referenceName": "DS_SQL_Generic",
+								"type": "DatasetReference",
+								"parameters": {
+									"ServerName": {
+										"value": "@pipeline().parameters.ServerName",
+										"type": "Expression"
+									},
+									"DBName": {
+										"value": "@pipeline().parameters.DBName",
+										"type": "Expression"
+									},
+									"SchemaName": {
+										"value": "@pipeline().parameters.SchemaName",
+										"type": "Expression"
+									},
+									"TableName": {
+										"value": "@pipeline().parameters.TableName",
+										"type": "Expression"
+									}
+								}
+							}
+						}
+					},
+					{
+						"name": "Copy data incremental watermark",
+						"type": "Copy",
+						"dependsOn": [
+							{
+								"activity": "Lookup Previous Watermark Value",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							},
+							{
+								"activity": "Lookup Current Watermark Value",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "SqlServerSource",
+								"sqlReaderQuery": {
+									"value": "select * from @{pipeline().parameters.TableName} where @{pipeline().parameters.WaterMarkColumnName} > '@{activity('Lookup Previous Watermark Value').output.firstRow.WatermarkValue}' and @{pipeline().parameters.WaterMarkColumnName} <= '@{activity('Lookup Current Watermark Value').output.firstRow.NewWatermarkvalue}'",
+									"type": "Expression"
+								},
+								"queryTimeout": "02:00:00",
+								"partitionOption": "None"
+							},
+							"sink": {
+								"type": "ParquetSink",
+								"storeSettings": {
+									"type": "AzureBlobFSWriteSettings"
+								},
+								"formatSettings": {
+									"type": "ParquetWriteSettings"
+								}
+							},
+							"enableStaging": false,
+							"translator": {
+								"type": "TabularTranslator",
+								"typeConversion": true,
+								"typeConversionSettings": {
+									"allowDataTruncation": true,
+									"treatBooleanAsNumber": false
+								}
+							}
+						},
+						"inputs": [
+							{
+								"referenceName": "DS_SQL_Generic",
+								"type": "DatasetReference",
+								"parameters": {
+									"ServerName": {
+										"value": "@pipeline().parameters.ServerName",
+										"type": "Expression"
+									},
+									"DBName": {
+										"value": "@pipeline().parameters.DBName",
+										"type": "Expression"
+									},
+									"SchemaName": {
+										"value": "@pipeline().parameters.SchemaName",
+										"type": "Expression"
+									},
+									"TableName": {
+										"value": "@pipeline().parameters.TableName",
+										"type": "Expression"
+									}
+								}
+							}
+						],
+						"outputs": [
+							{
+								"referenceName": "DS_ADLSGEN2",
+								"type": "DatasetReference",
+								"parameters": {
+									"ADLSContainerName": {
+										"value": "@pipeline().parameters.ADLSContainerName",
+										"type": "Expression"
+									},
+									"DirectoryName": "@concat(pipeline().parameters.TableName,'/','year=',formatDateTime(utcnow(),'yyyy'),'/','month=',formatDateTime(utcnow(),'MM'),'/','day=',formatDateTime(utcnow(),'dd'))"
+								}
+							}
+						]
+					},
+					{
+						"name": "Insert Log Success",
+						"type": "SqlServerStoredProcedure",
+						"dependsOn": [
+							{
+								"activity": "Update WaterMark Value",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"storedProcedureName": "[[dbo].[InsertLog]",
+							"storedProcedureParameters": {
+								"BronzeCount": {
+									"value": {
+										"value": "@activity('Copy data incremental watermark').output.rowsCopied",
+										"type": "Expression"
+									},
+									"type": "Int64"
+								},
+								"DbName": {
+									"value": {
+										"value": "@pipeline().parameters.DBName",
+										"type": "Expression"
+									},
+									"type": "String"
+								},
+								"RunStatus": {
+									"value": "Sucess",
+									"type": "String"
+								},
+								"ServerName": {
+									"value": {
+										"value": "@pipeline().parameters.ServerName",
+										"type": "Expression"
+									},
+									"type": "String"
+								},
+								"SourceCount": {
+									"value": {
+										"value": "@activity('Copy data incremental watermark').output.rowsRead",
+										"type": "Expression"
+									},
+									"type": "Int64"
+								},
+								"TableName": {
+									"value": {
+										"value": "@pipeline().parameters.TableName",
+										"type": "Expression"
+									},
+									"type": "String"
+								},
+								"error": {
+									"value": "",
+									"type": "String"
+								}
+							}
+						},
+						"linkedServiceName": {
+							"referenceName": "[parameters('LS_SQL_Config')]",
+							"type": "LinkedServiceReference"
+						}
+					},
+					{
+						"name": "Insert Log Failure",
+						"type": "SqlServerStoredProcedure",
+						"dependsOn": [
+							{
+								"activity": "Copy data incremental watermark",
+								"dependencyConditions": [
+									"Failed"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"storedProcedureName": "[[dbo].[InsertLog]",
+							"storedProcedureParameters": {
+								"BronzeCount": {
+									"value": {
+										"value": "@activity('Copy data incremental watermark').output?.rowsCopied",
+										"type": "Expression"
+									},
+									"type": "Int64"
+								},
+								"DbName": {
+									"value": {
+										"value": "@pipeline().parameters.DBName",
+										"type": "Expression"
+									},
+									"type": "String"
+								},
+								"RunStatus": {
+									"value": "Failure",
+									"type": "String"
+								},
+								"ServerName": {
+									"value": {
+										"value": "@pipeline().parameters.ServerName",
+										"type": "Expression"
+									},
+									"type": "String"
+								},
+								"SourceCount": {
+									"value": {
+										"value": "@activity('Copy data incremental watermark').output?.rowsRead",
+										"type": "Expression"
+									},
+									"type": "Int64"
+								},
+								"TableName": {
+									"value": {
+										"value": "@pipeline().parameters.TableName",
+										"type": "Expression"
+									},
+									"type": "String"
+								},
+								"error": {
+									"value": {
+										"value": "@activity('Copy data incremental watermark').error?.message",
+										"type": "Expression"
+									},
+									"type": "String"
+								}
+							}
+						},
+						"linkedServiceName": {
+							"referenceName": "[parameters('LS_SQL_Config')]",
+							"type": "LinkedServiceReference"
+						}
+					},
+					{
+						"name": "Update WaterMark Value",
+						"type": "SqlServerStoredProcedure",
+						"dependsOn": [
+							{
+								"activity": "Copy data incremental watermark",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"storedProcedureName": "[[dbo].[Update_WaterMark_Value]",
+							"storedProcedureParameters": {
+								"serverName": {
+									"value": {
+										"value": "@pipeline().parameters.ServerName",
+										"type": "Expression"
+									},
+									"type": "String"
+								},
+								"TableName": {
+									"value": {
+										"value": "@pipeline().parameters.TableName",
+										"type": "Expression"
+									},
+									"type": "String"
+								},
+								"watermark": {
+									"value": {
+										"value": "@activity('Lookup Current Watermark Value').output.firstRow.NewWatermarkvalue",
+										"type": "Expression"
+									},
+									"type": "DateTime"
+								}
+							}
+						},
+						"linkedServiceName": {
+							"referenceName": "[parameters('LS_SQL_Config')]",
+							"type": "LinkedServiceReference"
+						}
+					},
+					{
+						"name": "Copy data to staging for incremental processing",
+						"type": "Copy",
+						"dependsOn": [
+							{
+								"activity": "Update WaterMark Value",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "ParquetSource",
+								"storeSettings": {
+									"type": "AzureBlobFSReadSettings",
+									"recursive": true,
+									"wildcardFolderPath": {
+										"value": "@concat(pipeline().parameters.TableName,'/','year=',formatDateTime(utcnow(),'yyyy'),'/','month=',formatDateTime(utcnow(),'MM'),'/','day=',formatDateTime(utcnow(),'dd'))",
+										"type": "Expression"
+									},
+									"wildcardFileName": "*.parquet",
+									"enablePartitionDiscovery": false
+								}
+							},
+							"sink": {
+								"type": "ParquetSink",
+								"storeSettings": {
+									"type": "AzureBlobFSWriteSettings"
+								},
+								"formatSettings": {
+									"type": "ParquetWriteSettings"
+								}
+							},
+							"enableStaging": false,
+							"translator": {
+								"type": "TabularTranslator",
+								"typeConversion": true,
+								"typeConversionSettings": {
+									"allowDataTruncation": true,
+									"treatBooleanAsNumber": false
+								}
+							}
+						},
+						"inputs": [
+							{
+								"referenceName": "DS_ADLSGEN2",
+								"type": "DatasetReference",
+								"parameters": {
+									"ADLSContainerName": "@pipeline().parameters.ADLSContainerName",
+									"DirectoryName": "@concat(pipeline().parameters.TableName,'/','year=',formatDateTime(utcnow(),'yyyy'),'/','month=',formatDateTime(utcnow(),'MM'),'/','day=',formatDateTime(utcnow(),'dd'))"
+								}
+							}
+						],
+						"outputs": [
+							{
+								"referenceName": "DS_ADLSGEN2",
+								"type": "DatasetReference",
+								"parameters": {
+									"ADLSContainerName": {
+										"value": "@pipeline().parameters.StageDirectoryName",
+										"type": "Expression"
+									},
+									"DirectoryName": {
+										"value": "@concat(pipeline().parameters.ServerName,'/',pipeline().parameters.TableName)",
+										"type": "Expression"
+									}
+								}
+							}
+						]
+					}
+				],
+				"parameters": {
+					"ServerName": {
+						"type": "string",
+						"defaultValue": "sqlpocnonprod.database.windows.net"
+					},
+					"DBName": {
+						"type": "string",
+						"defaultValue": "POC"
+					},
+					"SchemaName": {
+						"type": "string",
+						"defaultValue": "dbo"
+					},
+					"TableName": {
+						"type": "string",
+						"defaultValue": "project_table"
+					},
+					"ADLSContainerName": {
+						"type": "string",
+						"defaultValue": "landingbronze"
+					},
+					"ADLSDirectoryName": {
+						"type": "string"
+					},
+					"StageDirectoryName": {
+						"type": "string",
+						"defaultValue": "stgprocessing"
+					},
+					"WaterMarkColumnName": {
+						"type": "string",
+						"defaultValue": "Creationtime"
+					}
+				},
+				"annotations": []
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/datasets/DS_SQL_Config')]",
+				"[concat(variables('workspaceId'), '/datasets/DS_SQL_Generic')]",
+				"[concat(variables('workspaceId'), '/datasets/DS_ADLSGEN2')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/PL_Generic_Full_Load')]",
+			"type": "Microsoft.Synapse/workspaces/pipelines",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"activities": [
+					{
+						"name": "Copy data to ADLS",
+						"type": "Copy",
+						"dependsOn": [
+							{
+								"activity": "If Exists",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "SqlServerSource",
+								"queryTimeout": "02:00:00",
+								"partitionOption": "DynamicRange",
+								"partitionSettings": {
+									"partitionColumnName": {
+										"value": "@{pipeline().parameters.PartitionColumnName}",
+										"type": "Expression"
+									},
+									"partitionUpperBound": {
+										"value": "@{pipeline().parameters.PartitionUpperBound}",
+										"type": "Expression"
+									},
+									"partitionLowerBound": {
+										"value": "@{pipeline().parameters.PartitionLowerBound}",
+										"type": "Expression"
+									}
+								}
+							},
+							"sink": {
+								"type": "ParquetSink",
+								"storeSettings": {
+									"type": "AzureBlobFSWriteSettings",
+									"blockSizeInMB": 100
+								},
+								"formatSettings": {
+									"type": "ParquetWriteSettings"
+								}
+							},
+							"enableStaging": false,
+							"translator": {
+								"type": "TabularTranslator",
+								"typeConversion": true,
+								"typeConversionSettings": {
+									"allowDataTruncation": true,
+									"treatBooleanAsNumber": false
+								}
+							}
+						},
+						"inputs": [
+							{
+								"referenceName": "DS_SQL_Generic",
+								"type": "DatasetReference",
+								"parameters": {
+									"ServerName": {
+										"value": "@pipeline().parameters.ServerName",
+										"type": "Expression"
+									},
+									"DBName": {
+										"value": "@pipeline().parameters.DBName",
+										"type": "Expression"
+									},
+									"SchemaName": {
+										"value": "@pipeline().parameters.SchemaName",
+										"type": "Expression"
+									},
+									"TableName": {
+										"value": "@pipeline().parameters.TableName",
+										"type": "Expression"
+									}
+								}
+							}
+						],
+						"outputs": [
+							{
+								"referenceName": "DS_ADLSGEN2",
+								"type": "DatasetReference",
+								"parameters": {
+									"ADLSContainerName": {
+										"value": "@pipeline().parameters.ADLSContainerName",
+										"type": "Expression"
+									},
+									"DirectoryName": {
+										"value": "@concat(pipeline().parameters.DBName,'/',pipeline().parameters.TableName)",
+										"type": "Expression"
+									}
+								}
+							}
+						]
+					},
+					{
+						"name": "Get Metadata Of Previous Files",
+						"type": "GetMetadata",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"dataset": {
+								"referenceName": "DS_ADLSGEN2",
+								"type": "DatasetReference",
+								"parameters": {
+									"ADLSContainerName": {
+										"value": "@pipeline().parameters.ADLSContainerName",
+										"type": "Expression"
+									},
+									"DirectoryName": {
+										"value": "@concat(pipeline().parameters.DBName,'/',pipeline().parameters.TableName)",
+										"type": "Expression"
+									}
+								}
+							},
+							"fieldList": [
+								"exists"
+							],
+							"storeSettings": {
+								"type": "AzureBlobFSReadSettings",
+								"recursive": true,
+								"enablePartitionDiscovery": false
+							}
+						}
+					},
+					{
+						"name": "If Exists",
+						"type": "IfCondition",
+						"dependsOn": [
+							{
+								"activity": "Get Metadata Of Previous Files",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"userProperties": [],
+						"typeProperties": {
+							"expression": {
+								"value": "@activity('Get Metadata Of Previous Files').output.exists",
+								"type": "Expression"
+							},
+							"ifTrueActivities": [
+								{
+									"name": "Move Previous Version",
+									"type": "Copy",
+									"dependsOn": [],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"source": {
+											"type": "ParquetSource",
+											"storeSettings": {
+												"type": "AzureBlobFSReadSettings",
+												"recursive": true,
+												"wildcardFolderPath": {
+													"value": "@concat(pipeline().parameters.DBName,'/',pipeline().parameters.TableName)",
+													"type": "Expression"
+												},
+												"wildcardFileName": "*.parquet",
+												"enablePartitionDiscovery": false
+											}
+										},
+										"sink": {
+											"type": "ParquetSink",
+											"storeSettings": {
+												"type": "AzureBlobFSWriteSettings"
+											},
+											"formatSettings": {
+												"type": "ParquetWriteSettings"
+											}
+										},
+										"enableStaging": false,
+										"translator": {
+											"type": "TabularTranslator",
+											"typeConversion": true,
+											"typeConversionSettings": {
+												"allowDataTruncation": true,
+												"treatBooleanAsNumber": false
+											}
+										}
+									},
+									"inputs": [
+										{
+											"referenceName": "DS_ADLSGEN2",
+											"type": "DatasetReference",
+											"parameters": {
+												"ADLSContainerName": {
+													"value": "@pipeline().parameters.ADLSContainerName",
+													"type": "Expression"
+												},
+												"DirectoryName": "@concat(pipeline().parameters.DBName,'/',pipeline().parameters.TableName)"
+											}
+										}
+									],
+									"outputs": [
+										{
+											"referenceName": "DS_ADLSGEN2",
+											"type": "DatasetReference",
+											"parameters": {
+												"ADLSContainerName": {
+													"value": "@pipeline().parameters.ArchivalContainerName",
+													"type": "Expression"
+												},
+												"DirectoryName": {
+													"value": "@concat(pipeline().parameters.DBName,'/',pipeline().parameters.TableName)",
+													"type": "Expression"
+												}
+											}
+										}
+									]
+								},
+								{
+									"name": "Delete Archived Files",
+									"type": "Delete",
+									"dependsOn": [
+										{
+											"activity": "Move Previous Version",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										}
+									],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"dataset": {
+											"referenceName": "DS_ADLSGEN2",
+											"type": "DatasetReference",
+											"parameters": {
+												"ADLSContainerName": {
+													"value": "@pipeline().parameters.ADLSContainerName",
+													"type": "Expression"
+												},
+												"DirectoryName": "@concat(pipeline().parameters.DBName,'/',pipeline().parameters.TableName)"
+											}
+										},
+										"enableLogging": false,
+										"storeSettings": {
+											"type": "AzureBlobFSReadSettings",
+											"recursive": true,
+											"enablePartitionDiscovery": false
+										}
+									}
+								}
+							]
+						}
+					},
+					{
+						"name": "Insert Log Success",
+						"type": "SqlServerStoredProcedure",
+						"dependsOn": [
+							{
+								"activity": "Copy data to ADLS",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"storedProcedureName": "[[dbo].[InsertLog]",
+							"storedProcedureParameters": {
+								"BronzeCount": {
+									"value": {
+										"value": "@activity('Copy data to ADLS').output.rowsCopied",
+										"type": "Expression"
+									},
+									"type": "Int64"
+								},
+								"DbName": {
+									"value": {
+										"value": "@pipeline().parameters.DBName",
+										"type": "Expression"
+									},
+									"type": "String"
+								},
+								"RunStatus": {
+									"value": "Sucess",
+									"type": "String"
+								},
+								"ServerName": {
+									"value": {
+										"value": "@pipeline().parameters.ServerName",
+										"type": "Expression"
+									},
+									"type": "String"
+								},
+								"SourceCount": {
+									"value": {
+										"value": "@activity('Copy data to ADLS').output.rowsRead",
+										"type": "Expression"
+									},
+									"type": "Int64"
+								},
+								"TableName": {
+									"value": {
+										"value": "@pipeline().parameters.TableName",
+										"type": "Expression"
+									},
+									"type": "String"
+								},
+								"error": {
+									"value": {
+										"value": "@activity('Copy data to ADLS').error?.message",
+										"type": "Expression"
+									},
+									"type": "String"
+								}
+							}
+						},
+						"linkedServiceName": {
+							"referenceName": "[parameters('LS_SQL_Config')]",
+							"type": "LinkedServiceReference"
+						}
+					},
+					{
+						"name": "Insert Log Failure",
+						"type": "SqlServerStoredProcedure",
+						"dependsOn": [
+							{
+								"activity": "Copy data to ADLS",
+								"dependencyConditions": [
+									"Failed"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"storedProcedureName": "[[dbo].[InsertLog]",
+							"storedProcedureParameters": {
+								"BronzeCount": {
+									"value": {
+										"value": "@activity('Copy data to ADLS').output?.rowsCopied",
+										"type": "Expression"
+									},
+									"type": "Int64"
+								},
+								"DbName": {
+									"value": {
+										"value": "@pipeline().parameters.DBName",
+										"type": "Expression"
+									},
+									"type": "String"
+								},
+								"RunStatus": {
+									"value": "Failure",
+									"type": "String"
+								},
+								"ServerName": {
+									"value": {
+										"value": "@pipeline().parameters.ServerName",
+										"type": "Expression"
+									},
+									"type": "String"
+								},
+								"SourceCount": {
+									"value": {
+										"value": "@activity('Copy data to ADLS').output?.rowsRead",
+										"type": "Expression"
+									},
+									"type": "Int64"
+								},
+								"TableName": {
+									"value": {
+										"value": "@pipeline().parameters.TableName",
+										"type": "Expression"
+									},
+									"type": "String"
+								},
+								"error": {
+									"value": {
+										"value": "@activity('Copy data to ADLS').error?.message",
+										"type": "Expression"
+									},
+									"type": "String"
+								}
+							}
+						},
+						"linkedServiceName": {
+							"referenceName": "[parameters('LS_SQL_Config')]",
+							"type": "LinkedServiceReference"
+						}
+					}
+				],
+				"parameters": {
+					"ServerName": {
+						"type": "string",
+						"defaultValue": "sqlpocnonprod.database.windows.net"
+					},
+					"DBName": {
+						"type": "string",
+						"defaultValue": "sqldbpoctrain"
+					},
+					"SchemaName": {
+						"type": "string",
+						"defaultValue": "dbo"
+					},
+					"TableName": {
+						"type": "string",
+						"defaultValue": "EnhancedGreenTaxiInfo"
+					},
+					"ADLSContainerName": {
+						"type": "string",
+						"defaultValue": "landingbronze"
+					},
+					"ADLSDirectoryName": {
+						"type": "string"
+					},
+					"ArchivalContainerName": {
+						"type": "string",
+						"defaultValue": "stgprocessing"
+					},
+					"PartitionUpperBound": {
+						"type": "string",
+						"defaultValue": "2023-12-31T19:16:53.000Z"
+					},
+					"PartitionLowerBound": {
+						"type": "string",
+						"defaultValue": "2008-12-31T19:16:53.000Z"
+					},
+					"PartitionColumnName": {
+						"type": "string",
+						"defaultValue": "lpep_pickup_datetime"
+					}
+				},
+				"annotations": []
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/datasets/DS_SQL_Generic')]",
+				"[concat(variables('workspaceId'), '/datasets/DS_ADLSGEN2')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/PL_ODBC_Decrypt_Generic')]",
+			"type": "Microsoft.Synapse/workspaces/pipelines",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"activities": [
+					{
+						"name": "Copy data to ADLS ODBC",
+						"type": "Copy",
+						"dependsOn": [
+							{
+								"activity": "If Exists",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "OdbcSource",
+								"queryTimeout": "02:00:00"
+							},
+							"sink": {
+								"type": "ParquetSink",
+								"storeSettings": {
+									"type": "AzureBlobFSWriteSettings",
+									"blockSizeInMB": 100
+								},
+								"formatSettings": {
+									"type": "ParquetWriteSettings"
+								}
+							},
+							"enableStaging": false,
+							"translator": {
+								"type": "TabularTranslator",
+								"typeConversion": true,
+								"typeConversionSettings": {
+									"allowDataTruncation": true,
+									"treatBooleanAsNumber": false
+								}
+							}
+						},
+						"inputs": [
+							{
+								"referenceName": "DS_ODBCGEN",
+								"type": "DatasetReference",
+								"parameters": {
+									"SchemaName": {
+										"value": "@pipeline().parameters.SchemaName",
+										"type": "Expression"
+									},
+									"TableName": {
+										"value": "@pipeline().parameters.TableName",
+										"type": "Expression"
+									}
+								}
+							}
+						],
+						"outputs": [
+							{
+								"referenceName": "DS_ADLSGEN2",
+								"type": "DatasetReference",
+								"parameters": {
+									"ADLSContainerName": {
+										"value": "@pipeline().parameters.ADLSContainerName",
+										"type": "Expression"
+									},
+									"DirectoryName": {
+										"value": "@concat(pipeline().parameters.DBName,'/',pipeline().parameters.TableName)",
+										"type": "Expression"
+									}
+								}
+							}
+						]
+					},
+					{
+						"name": "Get Metadata Of Previous Files",
+						"type": "GetMetadata",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"dataset": {
+								"referenceName": "DS_ADLSGEN2",
+								"type": "DatasetReference",
+								"parameters": {
+									"ADLSContainerName": {
+										"value": "@pipeline().parameters.ADLSContainerName",
+										"type": "Expression"
+									},
+									"DirectoryName": {
+										"value": "@concat(pipeline().parameters.DBName,'/',pipeline().parameters.TableName)",
+										"type": "Expression"
+									}
+								}
+							},
+							"fieldList": [
+								"exists"
+							],
+							"storeSettings": {
+								"type": "AzureBlobFSReadSettings",
+								"recursive": true,
+								"enablePartitionDiscovery": false
+							}
+						}
+					},
+					{
+						"name": "If Exists",
+						"type": "IfCondition",
+						"dependsOn": [
+							{
+								"activity": "Get Metadata Of Previous Files",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"userProperties": [],
+						"typeProperties": {
+							"expression": {
+								"value": "@activity('Get Metadata Of Previous Files').output.exists",
+								"type": "Expression"
+							},
+							"ifTrueActivities": [
+								{
+									"name": "Move Previous Version",
+									"type": "Copy",
+									"dependsOn": [],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"source": {
+											"type": "ParquetSource",
+											"storeSettings": {
+												"type": "AzureBlobFSReadSettings",
+												"recursive": true,
+												"wildcardFolderPath": {
+													"value": "@concat(pipeline().parameters.DBName,'/',pipeline().parameters.TableName)",
+													"type": "Expression"
+												},
+												"wildcardFileName": "*.parquet",
+												"enablePartitionDiscovery": false
+											}
+										},
+										"sink": {
+											"type": "ParquetSink",
+											"storeSettings": {
+												"type": "AzureBlobFSWriteSettings"
+											},
+											"formatSettings": {
+												"type": "ParquetWriteSettings"
+											}
+										},
+										"enableStaging": false,
+										"translator": {
+											"type": "TabularTranslator",
+											"typeConversion": true,
+											"typeConversionSettings": {
+												"allowDataTruncation": true,
+												"treatBooleanAsNumber": false
+											}
+										}
+									},
+									"inputs": [
+										{
+											"referenceName": "DS_ADLSGEN2",
+											"type": "DatasetReference",
+											"parameters": {
+												"ADLSContainerName": {
+													"value": "@pipeline().parameters.ADLSContainerName",
+													"type": "Expression"
+												},
+												"DirectoryName": "@concat(pipeline().parameters.DBName,'/',pipeline().parameters.TableName)"
+											}
+										}
+									],
+									"outputs": [
+										{
+											"referenceName": "DS_ADLSGEN2",
+											"type": "DatasetReference",
+											"parameters": {
+												"ADLSContainerName": {
+													"value": "@pipeline().parameters.ArchivalContainerName",
+													"type": "Expression"
+												},
+												"DirectoryName": {
+													"value": "@concat(pipeline().parameters.DBName,'/',pipeline().parameters.TableName)",
+													"type": "Expression"
+												}
+											}
+										}
+									]
+								},
+								{
+									"name": "Delete Archived Files",
+									"type": "Delete",
+									"dependsOn": [
+										{
+											"activity": "Move Previous Version",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										}
+									],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"dataset": {
+											"referenceName": "DS_ADLSGEN2",
+											"type": "DatasetReference",
+											"parameters": {
+												"ADLSContainerName": {
+													"value": "@pipeline().parameters.ADLSContainerName",
+													"type": "Expression"
+												},
+												"DirectoryName": "@concat(pipeline().parameters.DBName,'/',pipeline().parameters.TableName)"
+											}
+										},
+										"enableLogging": false,
+										"storeSettings": {
+											"type": "AzureBlobFSReadSettings",
+											"recursive": true,
+											"enablePartitionDiscovery": false
+										}
+									}
+								}
+							]
+						}
+					},
+					{
+						"name": "Insert Log Success",
+						"type": "SqlServerStoredProcedure",
+						"dependsOn": [
+							{
+								"activity": "Copy data to ADLS ODBC",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"storedProcedureName": "[[dbo].[InsertLog]",
+							"storedProcedureParameters": {
+								"BronzeCount": {
+									"value": {
+										"value": "@activity('Copy data to ADLS ODBC').output.rowsCopied",
+										"type": "Expression"
+									},
+									"type": "Int64"
+								},
+								"DbName": {
+									"value": {
+										"value": "@pipeline().parameters.DBName",
+										"type": "Expression"
+									},
+									"type": "String"
+								},
+								"RunStatus": {
+									"value": "Sucess",
+									"type": "String"
+								},
+								"ServerName": {
+									"value": {
+										"value": "@pipeline().parameters.ServerName",
+										"type": "Expression"
+									},
+									"type": "String"
+								},
+								"SourceCount": {
+									"value": {
+										"value": "@activity('Copy data to ADLS ODBC').output.rowsRead",
+										"type": "Expression"
+									},
+									"type": "Int64"
+								},
+								"TableName": {
+									"value": {
+										"value": "@pipeline().parameters.TableName",
+										"type": "Expression"
+									},
+									"type": "String"
+								},
+								"error": {
+									"value": {
+										"value": "@activity('Copy data to ADLS ODBC').error?.message",
+										"type": "Expression"
+									},
+									"type": "String"
+								}
+							}
+						},
+						"linkedServiceName": {
+							"referenceName": "[parameters('LS_SQL_Config')]",
+							"type": "LinkedServiceReference"
+						}
+					},
+					{
+						"name": "Insert Log Failure",
+						"type": "SqlServerStoredProcedure",
+						"dependsOn": [
+							{
+								"activity": "Copy data to ADLS ODBC",
+								"dependencyConditions": [
+									"Failed"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"storedProcedureName": "[[dbo].[InsertLog]",
+							"storedProcedureParameters": {
+								"BronzeCount": {
+									"value": {
+										"value": "@activity('Copy data to ADLS ODBC').output?.rowsCopied",
+										"type": "Expression"
+									},
+									"type": "Int64"
+								},
+								"DbName": {
+									"value": {
+										"value": "@pipeline().parameters.DBName",
+										"type": "Expression"
+									},
+									"type": "String"
+								},
+								"RunStatus": {
+									"value": "Failure",
+									"type": "String"
+								},
+								"ServerName": {
+									"value": {
+										"value": "@pipeline().parameters.ServerName",
+										"type": "Expression"
+									},
+									"type": "String"
+								},
+								"SourceCount": {
+									"value": {
+										"value": "@activity('Copy data to ADLS ODBC').output?.rowsRead",
+										"type": "Expression"
+									},
+									"type": "Int64"
+								},
+								"TableName": {
+									"value": {
+										"value": "@pipeline().parameters.TableName",
+										"type": "Expression"
+									},
+									"type": "String"
+								},
+								"error": {
+									"value": {
+										"value": "@activity('Copy data to ADLS ODBC').error?.message",
+										"type": "Expression"
+									},
+									"type": "String"
+								}
+							}
+						},
+						"linkedServiceName": {
+							"referenceName": "[parameters('LS_SQL_Config')]",
+							"type": "LinkedServiceReference"
+						}
+					}
+				],
+				"parameters": {
+					"ServerName": {
+						"type": "string",
+						"defaultValue": "sqlpocnonprod.database.windows.net"
+					},
+					"DBName": {
+						"type": "string",
+						"defaultValue": "sqldbpoctrain"
+					},
+					"SchemaName": {
+						"type": "string",
+						"defaultValue": "dbo"
+					},
+					"TableName": {
+						"type": "string",
+						"defaultValue": "EnhancedGreenTaxiInfo"
+					},
+					"ADLSContainerName": {
+						"type": "string",
+						"defaultValue": "landingbronze"
+					},
+					"ADLSDirectoryName": {
+						"type": "string"
+					},
+					"ArchivalContainerName": {
+						"type": "string",
+						"defaultValue": "stgprocessing"
+					}
+				},
+				"annotations": []
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/datasets/DS_ODBCGEN')]",
+				"[concat(variables('workspaceId'), '/datasets/DS_ADLSGEN2')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/PL_Generic_File_Load')]",
+			"type": "Microsoft.Synapse/workspaces/pipelines",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"activities": [
+					{
+						"name": "Get Metadata",
+						"type": "GetMetadata",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"dataset": {
+								"referenceName": "DS_Folder",
+								"type": "DatasetReference",
+								"parameters": {
+									"FolderName": {
+										"value": "@pipeline().parameters.SourceFolder",
+										"type": "Expression"
+									}
+								}
+							},
+							"fieldList": [
+								"childItems"
+							],
+							"storeSettings": {
+								"type": "FileServerReadSettings",
+								"recursive": true,
+								"enablePartitionDiscovery": false
+							},
+							"formatSettings": {
+								"type": "BinaryReadSettings"
+							}
+						}
+					},
+					{
+						"name": "ForEach File",
+						"type": "ForEach",
+						"dependsOn": [
+							{
+								"activity": "Get Metadata",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"userProperties": [],
+						"typeProperties": {
+							"items": {
+								"value": "@activity('Get Metadata').output.childItems",
+								"type": "Expression"
+							},
+							"activities": [
+								{
+									"name": "Copy data",
+									"type": "Copy",
+									"dependsOn": [],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"source": {
+											"type": "BinarySource",
+											"storeSettings": {
+												"type": "FileServerReadSettings",
+												"recursive": true,
+												"deleteFilesAfterCompletion": false
+											},
+											"formatSettings": {
+												"type": "BinaryReadSettings"
+											}
+										},
+										"sink": {
+											"type": "BinarySink",
+											"storeSettings": {
+												"type": "AzureBlobFSWriteSettings"
+											}
+										},
+										"enableStaging": false
+									},
+									"inputs": [
+										{
+											"referenceName": "DS_FileParam",
+											"type": "DatasetReference",
+											"parameters": {
+												"FolderName": {
+													"value": "@pipeline().parameters.SourceFolder",
+													"type": "Expression"
+												},
+												"FileName": {
+													"value": "@item().name",
+													"type": "Expression"
+												}
+											}
+										}
+									],
+									"outputs": [
+										{
+											"referenceName": "LS_ADLS_Binary",
+											"type": "DatasetReference",
+											"parameters": {
+												"ContainerName": {
+													"value": "@pipeline().parameters.ADLSContainerName",
+													"type": "Expression"
+												},
+												"FolderName": {
+													"value": "@pipeline().parameters.ADLSDirectoryName",
+													"type": "Expression"
+												}
+											}
+										}
+									]
+								},
+								{
+									"name": "Insert Log Success",
+									"type": "SqlServerStoredProcedure",
+									"dependsOn": [
+										{
+											"activity": "Copy data",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										}
+									],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"storedProcedureName": "[[dbo].[InsertLog]",
+										"storedProcedureParameters": {
+											"BronzeCount": {
+												"value": {
+													"value": "@activity('Copy data').output.filesWritten",
+													"type": "Expression"
+												},
+												"type": "Int64"
+											},
+											"DbName": {
+												"value": {
+													"value": "@item().name",
+													"type": "Expression"
+												},
+												"type": "String"
+											},
+											"RunStatus": {
+												"value": "Sucess",
+												"type": "String"
+											},
+											"ServerName": {
+												"value": {
+													"value": "@pipeline().parameters.SourceFolder",
+													"type": "Expression"
+												},
+												"type": "String"
+											},
+											"SourceCount": {
+												"value": {
+													"value": "@activity('Copy data').output.filesRead",
+													"type": "Expression"
+												},
+												"type": "Int64"
+											},
+											"TableName": {
+												"value": {
+													"value": "@item().name",
+													"type": "Expression"
+												},
+												"type": "String"
+											},
+											"error": {
+												"value": "",
+												"type": "String"
+											}
+										}
+									},
+									"linkedServiceName": {
+										"referenceName": "[parameters('LS_SQL_Config')]",
+										"type": "LinkedServiceReference"
+									}
+								},
+								{
+									"name": "Insert Log Failure",
+									"type": "SqlServerStoredProcedure",
+									"dependsOn": [
+										{
+											"activity": "Copy data",
+											"dependencyConditions": [
+												"Failed"
+											]
+										}
+									],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"storedProcedureName": "[[dbo].[InsertLog]",
+										"storedProcedureParameters": {
+											"BronzeCount": {
+												"value": {
+													"value": "@activity('Copy data').output.filesWritten",
+													"type": "Expression"
+												},
+												"type": "Int64"
+											},
+											"DbName": {
+												"value": {
+													"value": "@item().name",
+													"type": "Expression"
+												},
+												"type": "String"
+											},
+											"RunStatus": {
+												"value": "Sucess",
+												"type": "String"
+											},
+											"ServerName": {
+												"value": {
+													"value": "@pipeline().parameters.SourceFolder",
+													"type": "Expression"
+												},
+												"type": "String"
+											},
+											"SourceCount": {
+												"value": {
+													"value": "@activity('Copy data').output.filesRead",
+													"type": "Expression"
+												},
+												"type": "Int64"
+											},
+											"TableName": {
+												"value": {
+													"value": "@item().name",
+													"type": "Expression"
+												},
+												"type": "String"
+											},
+											"error": {
+												"value": {
+													"value": "@activity('Copy data').error?.message",
+													"type": "Expression"
+												},
+												"type": "String"
+											}
+										}
+									},
+									"linkedServiceName": {
+										"referenceName": "[parameters('LS_SQL_Config')]",
+										"type": "LinkedServiceReference"
+									}
+								}
+							]
+						}
+					}
+				],
+				"parameters": {
+					"SourceFolder": {
+						"type": "string",
+						"defaultValue": "\\\\DESKTOP-2EUE7DP\\SampleFiles"
+					},
+					"ADLSContainerName": {
+						"type": "string",
+						"defaultValue": "landingbronze"
+					},
+					"ADLSDirectoryName": {
+						"type": "string",
+						"defaultValue": "Files"
+					}
+				},
+				"annotations": []
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/datasets/DS_Folder')]",
+				"[concat(variables('workspaceId'), '/datasets/DS_FileParam')]",
+				"[concat(variables('workspaceId'), '/datasets/LS_ADLS_Binary')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/DS_SQL_Generic')]",
+			"type": "Microsoft.Synapse/workspaces/datasets",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "[parameters('LS_SQL_GENERIC')]",
+					"type": "LinkedServiceReference",
+					"parameters": {
+						"SqlServerName": {
+							"value": "@dataset().ServerName",
+							"type": "Expression"
+						},
+						"DBName": {
+							"value": "@dataset().DBName",
+							"type": "Expression"
+						}
+					}
+				},
+				"parameters": {
+					"ServerName": {
+						"type": "string"
+					},
+					"DBName": {
+						"type": "string"
+					},
+					"SchemaName": {
+						"type": "string"
+					},
+					"TableName": {
+						"type": "string"
+					}
+				},
+				"annotations": [],
+				"type": "SqlServerTable",
+				"schema": [],
+				"typeProperties": {
+					"schema": {
+						"value": "@dataset().SchemaName",
+						"type": "Expression"
+					},
+					"table": {
+						"value": "@dataset().TableName",
+						"type": "Expression"
+					}
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/DS_ADLSGEN2')]",
+			"type": "Microsoft.Synapse/workspaces/datasets",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "[parameters('LS_ADLS_GEN2')]",
+					"type": "LinkedServiceReference"
+				},
+				"parameters": {
+					"ADLSContainerName": {
+						"type": "string"
+					},
+					"DirectoryName": {
+						"type": "string"
+					}
+				},
+				"annotations": [],
+				"type": "Parquet",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobFSLocation",
+						"folderPath": {
+							"value": "@dataset().DirectoryName",
+							"type": "Expression"
+						},
+						"fileSystem": {
+							"value": "@dataset().ADLSContainerName",
+							"type": "Expression"
+						}
+					},
+					"compressionCodec": "snappy"
+				},
+				"schema": []
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/DS_ODBCGEN')]",
+			"type": "Microsoft.Synapse/workspaces/datasets",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "[parameters('OdbcLSGEN')]",
+					"type": "LinkedServiceReference"
+				},
+				"parameters": {
+					"SchemaName": {
+						"type": "string"
+					},
+					"TableName": {
+						"type": "string"
+					}
+				},
+				"annotations": [],
+				"type": "OdbcTable",
+				"schema": [],
+				"typeProperties": {
+					"tableName": {
+						"value": "@concat(dataset().SchemaName,'.',dataset().TableName)",
+						"type": "Expression"
+					}
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/DS_Folder')]",
+			"type": "Microsoft.Synapse/workspaces/datasets",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "[parameters('LS_FileServer_SHIR')]",
+					"type": "LinkedServiceReference",
+					"parameters": {
+						"FolderName": "\\\\DESKTOP-2EUE7DP\\SampleFiles"
+					}
+				},
+				"parameters": {
+					"FolderName": {
+						"type": "string"
+					}
+				},
+				"annotations": [],
+				"type": "Binary",
+				"typeProperties": {
+					"location": {
+						"type": "FileServerLocation",
+						"folderPath": {
+							"value": "@dataset().FolderName",
+							"type": "Expression"
+						}
+					}
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/DS_FileParam')]",
+			"type": "Microsoft.Synapse/workspaces/datasets",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "[parameters('LS_FileServer_SHIR')]",
+					"type": "LinkedServiceReference",
+					"parameters": {
+						"FolderName": "\\\\DESKTOP-2EUE7DP\\SampleFiles"
+					}
+				},
+				"parameters": {
+					"FolderName": {
+						"type": "string"
+					},
+					"FileName": {
+						"type": "string"
+					}
+				},
+				"annotations": [],
+				"type": "Binary",
+				"typeProperties": {
+					"location": {
+						"type": "FileServerLocation",
+						"fileName": {
+							"value": "@dataset().FileName",
+							"type": "Expression"
+						},
+						"folderPath": {
+							"value": "@dataset().FolderName",
+							"type": "Expression"
+						}
+					}
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/LS_ADLS_Binary')]",
+			"type": "Microsoft.Synapse/workspaces/datasets",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "[parameters('LS_ADLS_GEN2')]",
+					"type": "LinkedServiceReference"
+				},
+				"parameters": {
+					"ContainerName": {
+						"type": "string"
+					},
+					"FolderName": {
+						"type": "string"
+					}
+				},
+				"annotations": [],
+				"type": "Binary",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobFSLocation",
+						"folderPath": {
+							"value": "@dataset().FolderName",
+							"type": "Expression"
+						},
+						"fileSystem": {
+							"value": "@dataset().ContainerName",
+							"type": "Expression"
+						}
+					}
+				}
+			},
+			"dependsOn": []
+		}
+	]
+}
