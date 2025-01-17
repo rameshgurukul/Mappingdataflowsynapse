@@ -1,15 +1,15 @@
 {
 	"name": "AzureDataLakeStorageWorkshop",
-	"type": "Microsoft.DataFactory/factories/linkedservices",
 	"properties": {
 		"annotations": [],
 		"type": "AzureBlobFS",
 		"typeProperties": {
-			"url": "https://stgwrkshp.dfs.core.windows.net/"
+			"url": "https://strgestusmah.dfs.core.windows.net/"
 		},
 		"connectVia": {
-			"referenceName": "integrationRuntime5",
+			"referenceName": "integrationRuntime7",
 			"type": "IntegrationRuntimeReference"
 		}
-	}
+	},
+	"type": "Microsoft.DataFactory/factories/linkedservices"
 }
