@@ -1,0 +1,34 @@
+{
+	"name": "DS_ADLSGEN21",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "AzureDataLakeStorageWorkshop",
+			"type": "LinkedServiceReference"
+		},
+		"parameters": {
+			"ADLSContainerName": {
+				"type": "string"
+			},
+			"DirectoryName": {
+				"type": "string"
+			}
+		},
+		"annotations": [],
+		"type": "Parquet",
+		"typeProperties": {
+			"location": {
+				"type": "AzureBlobFSLocation",
+				"folderPath": {
+					"value": "@dataset().DirectoryName",
+					"type": "Expression"
+				},
+				"fileSystem": {
+					"value": "@dataset().ADLSContainerName",
+					"type": "Expression"
+				}
+			},
+			"compressionCodec": "snappy"
+		},
+		"schema": []
+	}
+}
