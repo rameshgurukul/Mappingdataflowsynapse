@@ -4,10 +4,10 @@
 		"annotations": [],
 		"type": "AzureBlobFS",
 		"typeProperties": {
-			"url": "https://strgestusmah.dfs.core.windows.net/"
+			"url": "https://datafactoryrmaganti.dfs.core.windows.net/"
 		},
 		"connectVia": {
-			"referenceName": "integrationRuntime7",
+			"referenceName": "integrationRuntime8",
 			"type": "IntegrationRuntimeReference"
 		}
 	},
