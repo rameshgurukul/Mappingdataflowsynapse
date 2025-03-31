@@ -1,0 +1,9 @@
+{
+	"name": "darafactoryrmaganti",
+	"location": "eastus",
+	"identity": {
+		"type": "SystemAssigned",
+		"principalId": "b5bb4c15-7762-4b8c-9a44-c7ce58b34603",
+		"tenantId": "67b0fa8f-dfeb-4b98-a88b-9a0fe0ca1bac"
+	}
+}
