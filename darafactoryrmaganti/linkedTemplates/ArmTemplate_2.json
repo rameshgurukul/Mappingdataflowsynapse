@@ -1,0 +1,3588 @@
+{
+	"$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"factoryName": {
+			"type": "string",
+			"metadata": "Data Factory name",
+			"defaultValue": "darafactoryrmaganti"
+		}
+	},
+	"variables": {
+		"factoryId": "[concat('Microsoft.DataFactory/factories/', parameters('factoryName'))]"
+	},
+	"resources": [
+		{
+			"name": "[concat(parameters('factoryName'), '/DS_SQL_Generic1')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "LS_Generic",
+					"type": "LinkedServiceReference",
+					"parameters": {
+						"SqlServerName": {
+							"value": "@dataset().ServerName",
+							"type": "Expression"
+						},
+						"DBName": {
+							"value": "@dataset().DBName",
+							"type": "Expression"
+						}
+					}
+				},
+				"parameters": {
+					"ServerName": {
+						"type": "string"
+					},
+					"DBName": {
+						"type": "string"
+					},
+					"SchemaName": {
+						"type": "string"
+					},
+					"TableName": {
+						"type": "string"
+					}
+				},
+				"annotations": [],
+				"type": "SqlServerTable",
+				"schema": [],
+				"typeProperties": {
+					"schema": {
+						"value": "@dataset().SchemaName",
+						"type": "Expression"
+					},
+					"table": {
+						"value": "@dataset().TableName",
+						"type": "Expression"
+					}
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/ParquetParam')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "AzureDataLakeStorageWorkshop",
+					"type": "LinkedServiceReference"
+				},
+				"parameters": {
+					"ContainerName": {
+						"type": "string"
+					},
+					"DirectoryName": {
+						"type": "string"
+					}
+				},
+				"annotations": [],
+				"type": "Parquet",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobFSLocation",
+						"folderPath": {
+							"value": "@dataset().DirectoryName",
+							"type": "Expression"
+						},
+						"fileSystem": {
+							"value": "@dataset().ContainerName",
+							"type": "Expression"
+						}
+					},
+					"compressionCodec": "snappy"
+				},
+				"schema": []
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/ParquetSink')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "AzureDataLakeStorageWorkshop",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "Parquet",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobFSLocation",
+						"folderPath": "Output",
+						"fileSystem": "synpswrkshp"
+					},
+					"compressionCodec": "snappy"
+				},
+				"schema": []
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/Dataflow_FactDIMtableloading')]",
+			"type": "Microsoft.DataFactory/factories/dataflows",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"type": "MappingDataFlow",
+				"typeProperties": {
+					"sources": [
+						{
+							"linkedService": {
+								"referenceName": "AzureDataLakeStorageWorkshop",
+								"type": "LinkedServiceReference"
+							},
+							"name": "source1"
+						},
+						{
+							"linkedService": {
+								"referenceName": "AzureDataLakeStorageWorkshop",
+								"type": "LinkedServiceReference"
+							},
+							"name": "source2"
+						},
+						{
+							"linkedService": {
+								"referenceName": "AzureDataLakeStorageWorkshop",
+								"type": "LinkedServiceReference"
+							},
+							"name": "source3"
+						},
+						{
+							"linkedService": {
+								"referenceName": "AzureDataLakeStorageWorkshop",
+								"type": "LinkedServiceReference"
+							},
+							"name": "source4"
+						}
+					],
+					"sinks": [
+						{
+							"linkedService": {
+								"referenceName": "AzureDataLakeStorageWorkshop",
+								"type": "LinkedServiceReference"
+							},
+							"name": "sink1"
+						},
+						{
+							"linkedService": {
+								"referenceName": "AzureDataLakeStorageWorkshop",
+								"type": "LinkedServiceReference"
+							},
+							"name": "sink2"
+						},
+						{
+							"linkedService": {
+								"referenceName": "AzureDataLakeStorageWorkshop",
+								"type": "LinkedServiceReference"
+							},
+							"name": "sink3"
+						},
+						{
+							"linkedService": {
+								"referenceName": "AzureDataLakeStorageWorkshop",
+								"type": "LinkedServiceReference"
+							},
+							"name": "sink4"
+						}
+					],
+					"transformations": [
+						{
+							"name": "selectdimpickup"
+						},
+						{
+							"name": "DistinctRows1"
+						},
+						{
+							"name": "selectdimdropoff"
+						},
+						{
+							"name": "DistinctRows"
+						},
+						{
+							"name": "select1"
+						},
+						{
+							"name": "select2"
+						},
+						{
+							"name": "surrogateKey1"
+						},
+						{
+							"name": "surrogateKey2"
+						},
+						{
+							"name": "select3"
+						},
+						{
+							"name": "surrogateKey3"
+						},
+						{
+							"name": "join1"
+						},
+						{
+							"name": "select4"
+						},
+						{
+							"name": "join2"
+						},
+						{
+							"name": "select5"
+						},
+						{
+							"name": "join3"
+						},
+						{
+							"name": "select6"
+						}
+					],
+					"scriptLines": [
+						"source(output(",
+						"          VendorID as long,",
+						"          lpep_pickup_datetime as timestamp,",
+						"          lpep_dropoff_datetime as timestamp,",
+						"          store_and_fwd_flag as string,",
+						"          RatecodeID as double,",
+						"          PULocationID as long,",
+						"          DOLocationID as long,",
+						"          passenger_count as double,",
+						"          trip_distance as double,",
+						"          fare_amount as double,",
+						"          extra as double,",
+						"          mta_tax as double,",
+						"          tip_amount as double,",
+						"          tolls_amount as double,",
+						"          ehail_fee as integer,",
+						"          improvement_surcharge as double,",
+						"          total_amount as double,",
+						"          payment_type as double,",
+						"          trip_type as double,",
+						"          congestion_surcharge as double,",
+						"          PU_Borough as string,",
+						"          PU_Zone as string,",
+						"          PU_service_zone as string,",
+						"          DO_Borough as string,",
+						"          Do_Zone as string,",
+						"          DO_service_zone as string",
+						"     ),",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     ignoreNoFilesFound: false,",
+						"     format: 'delta',",
+						"     fileSystem: 'synpswrkshp',",
+						"     folderPath: 'silver/nycgreentaxienhanced') ~> source1",
+						"source(output(",
+						"          VendorID as long,",
+						"          lpep_pickup_datetime as timestamp,",
+						"          lpep_dropoff_datetime as timestamp,",
+						"          store_and_fwd_flag as string,",
+						"          RatecodeID as double,",
+						"          PULocationID as long,",
+						"          DOLocationID as long,",
+						"          passenger_count as double,",
+						"          trip_distance as double,",
+						"          fare_amount as double,",
+						"          extra as double,",
+						"          mta_tax as double,",
+						"          tip_amount as double,",
+						"          tolls_amount as double,",
+						"          ehail_fee as integer,",
+						"          improvement_surcharge as double,",
+						"          total_amount as double,",
+						"          payment_type as double,",
+						"          trip_type as double,",
+						"          congestion_surcharge as double,",
+						"          PU_Borough as string,",
+						"          PU_Zone as string,",
+						"          PU_service_zone as string,",
+						"          DO_Borough as string,",
+						"          Do_Zone as string,",
+						"          DO_service_zone as string",
+						"     ),",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     ignoreNoFilesFound: false,",
+						"     format: 'delta',",
+						"     fileSystem: 'synpswrkshp',",
+						"     folderPath: 'silver/nycgreentaxienhanced') ~> source2",
+						"source(output(",
+						"          VendorID as long,",
+						"          lpep_pickup_datetime as timestamp,",
+						"          lpep_dropoff_datetime as timestamp,",
+						"          store_and_fwd_flag as string,",
+						"          RatecodeID as double,",
+						"          PULocationID as long,",
+						"          DOLocationID as long,",
+						"          passenger_count as double,",
+						"          trip_distance as double,",
+						"          fare_amount as double,",
+						"          extra as double,",
+						"          mta_tax as double,",
+						"          tip_amount as double,",
+						"          tolls_amount as double,",
+						"          ehail_fee as integer,",
+						"          improvement_surcharge as double,",
+						"          total_amount as double,",
+						"          payment_type as double,",
+						"          trip_type as double,",
+						"          congestion_surcharge as double,",
+						"          PU_Borough as string,",
+						"          PU_Zone as string,",
+						"          PU_service_zone as string,",
+						"          DO_Borough as string,",
+						"          Do_Zone as string,",
+						"          DO_service_zone as string",
+						"     ),",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     ignoreNoFilesFound: false,",
+						"     format: 'delta',",
+						"     fileSystem: 'synpswrkshp',",
+						"     folderPath: 'silver/nycgreentaxienhanced') ~> source3",
+						"source(output(",
+						"          VendorID as short,",
+						"          VendorDescription as string",
+						"     ),",
+						"     useSchema: false,",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     ignoreNoFilesFound: false,",
+						"     format: 'delimited',",
+						"     fileSystem: 'synpswrkshp',",
+						"     fileName: 'vendoridlkp.csv',",
+						"     columnDelimiter: ',',",
+						"     escapeChar: '\\\\',",
+						"     quoteChar: '\\\"',",
+						"     columnNamesAsHeader: true) ~> source4",
+						"source1 select(mapColumn(",
+						"          PULocationID,",
+						"          PU_Borough,",
+						"          PU_Zone,",
+						"          PU_service_zone",
+						"     ),",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> selectdimpickup",
+						"selectdimpickup aggregate(groupBy(mycols = sha2(256,columns())),",
+						"     each(match(true()), $$ = first($$))) ~> DistinctRows1",
+						"source2 select(mapColumn(",
+						"          DOLocationID,",
+						"          DO_Borough,",
+						"          Do_Zone,",
+						"          DO_service_zone",
+						"     ),",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> selectdimdropoff",
+						"selectdimdropoff aggregate(groupBy(mycols = sha2(256,columns())),",
+						"     each(match(true()), $$ = first($$))) ~> DistinctRows",
+						"DistinctRows1 select(mapColumn(",
+						"          PULocationID,",
+						"          PU_Borough,",
+						"          PU_Zone,",
+						"          PU_service_zone",
+						"     ),",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> select1",
+						"DistinctRows select(mapColumn(",
+						"          DOLocationID,",
+						"          DO_Borough,",
+						"          Do_Zone,",
+						"          DO_service_zone",
+						"     ),",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> select2",
+						"select1 keyGenerate(output(pickupsurrogate as long),",
+						"     startAt: 1L,",
+						"     stepValue: 1L) ~> surrogateKey1",
+						"select2 keyGenerate(output(dropoffsurrogatekey as long),",
+						"     startAt: 100L,",
+						"     stepValue: 1L) ~> surrogateKey2",
+						"source3 select(mapColumn(",
+						"          VendorID,",
+						"          lpep_pickup_datetime,",
+						"          lpep_dropoff_datetime,",
+						"          PULocationID,",
+						"          DOLocationID,",
+						"          trip_distance,",
+						"          fare_amount,",
+						"          tip_amount",
+						"     ),",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> select3",
+						"source4 keyGenerate(output(vendorsurrogate as long),",
+						"     startAt: 1000L,",
+						"     stepValue: 1L) ~> surrogateKey3",
+						"select3, surrogateKey1 join(select3@PULocationID == select1@PULocationID,",
+						"     joinType:'inner',",
+						"     matchType:'exact',",
+						"     ignoreSpaces: false,",
+						"     broadcast: 'auto')~> join1",
+						"join1 select(mapColumn(",
+						"          VendorID,",
+						"          lpep_pickup_datetime,",
+						"          lpep_dropoff_datetime,",
+						"          DOLocationID,",
+						"          trip_distance,",
+						"          fare_amount,",
+						"          tip_amount,",
+						"          pickupsurrogate",
+						"     ),",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> select4",
+						"select4, surrogateKey2 join(select4@DOLocationID == select2@DOLocationID,",
+						"     joinType:'inner',",
+						"     matchType:'exact',",
+						"     ignoreSpaces: false,",
+						"     broadcast: 'auto')~> join2",
+						"join2 select(mapColumn(",
+						"          VendorID,",
+						"          lpep_pickup_datetime,",
+						"          lpep_dropoff_datetime,",
+						"          trip_distance,",
+						"          fare_amount,",
+						"          tip_amount,",
+						"          pickupsurrogate,",
+						"          dropoffsurrogatekey",
+						"     ),",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> select5",
+						"select5, surrogateKey3 join(select5@VendorID == source4@VendorID,",
+						"     joinType:'inner',",
+						"     matchType:'exact',",
+						"     ignoreSpaces: false,",
+						"     broadcast: 'auto')~> join3",
+						"join3 select(mapColumn(",
+						"          lpep_pickup_datetime,",
+						"          lpep_dropoff_datetime,",
+						"          trip_distance,",
+						"          fare_amount,",
+						"          tip_amount,",
+						"          pickupsurrogate,",
+						"          dropoffsurrogatekey,",
+						"          vendorsurrogate",
+						"     ),",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> select6",
+						"surrogateKey1 sink(allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     format: 'parquet',",
+						"     fileSystem: 'synpswrkshp',",
+						"     folderPath: 'gold/dimpickupsurrogate',",
+						"     umask: 0022,",
+						"     preCommands: [],",
+						"     postCommands: [],",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> sink1",
+						"surrogateKey2 sink(allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     format: 'parquet',",
+						"     fileSystem: 'synpswrkshp',",
+						"     folderPath: 'gold/dimdropoffsurrogate',",
+						"     umask: 0022,",
+						"     preCommands: [],",
+						"     postCommands: [],",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> sink2",
+						"surrogateKey3 sink(allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     format: 'delta',",
+						"     fileSystem: 'synpswrkshp',",
+						"     folderPath: 'gold/dimvendorsurrogate',",
+						"     mergeSchema: false,",
+						"     autoCompact: false,",
+						"     optimizedWrite: false,",
+						"     vacuum: 0,",
+						"     deletable: false,",
+						"     insertable: true,",
+						"     updateable: false,",
+						"     upsertable: false,",
+						"     umask: 0022,",
+						"     preCommands: [],",
+						"     postCommands: [],",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> sink3",
+						"select6 sink(allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     format: 'delta',",
+						"     fileSystem: 'synpswrkshp',",
+						"     folderPath: 'gold/nyctaxifact',",
+						"     mergeSchema: false,",
+						"     autoCompact: false,",
+						"     optimizedWrite: false,",
+						"     vacuum: 0,",
+						"     deletable: false,",
+						"     insertable: true,",
+						"     updateable: false,",
+						"     upsertable: false,",
+						"     umask: 0022,",
+						"     preCommands: [],",
+						"     postCommands: [],",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> sink4"
+					]
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/Dataflow_Gold_StarSchema')]",
+			"type": "Microsoft.DataFactory/factories/dataflows",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"type": "MappingDataFlow",
+				"typeProperties": {
+					"sources": [
+						{
+							"linkedService": {
+								"referenceName": "AzureDataLakeStorageWorkshop",
+								"type": "LinkedServiceReference"
+							},
+							"name": "source"
+						},
+						{
+							"linkedService": {
+								"referenceName": "AzureDataLakeStorageWorkshop",
+								"type": "LinkedServiceReference"
+							},
+							"name": "source1"
+						},
+						{
+							"linkedService": {
+								"referenceName": "AzureDataLakeStorageWorkshop",
+								"type": "LinkedServiceReference"
+							},
+							"name": "source2"
+						}
+					],
+					"sinks": [
+						{
+							"linkedService": {
+								"referenceName": "AzureDataLakeStorageWorkshop",
+								"type": "LinkedServiceReference"
+							},
+							"name": "sink"
+						},
+						{
+							"linkedService": {
+								"referenceName": "AzureDataLakeStorageWorkshop",
+								"type": "LinkedServiceReference"
+							},
+							"name": "sink1"
+						},
+						{
+							"linkedService": {
+								"referenceName": "AzureDataLakeStorageWorkshop",
+								"type": "LinkedServiceReference"
+							},
+							"name": "sink2"
+						}
+					],
+					"transformations": [
+						{
+							"name": "select"
+						},
+						{
+							"name": "derivedColumn"
+						},
+						{
+							"name": "selectdimpickup"
+						},
+						{
+							"name": "DistinctRows1"
+						},
+						{
+							"name": "selectdimdropoff"
+						},
+						{
+							"name": "DistinctRows"
+						},
+						{
+							"name": "select1"
+						},
+						{
+							"name": "select2"
+						}
+					],
+					"scriptLines": [
+						"source(output(",
+						"          VendorID as long,",
+						"          lpep_pickup_datetime as timestamp,",
+						"          lpep_dropoff_datetime as timestamp,",
+						"          store_and_fwd_flag as string,",
+						"          RatecodeID as double,",
+						"          PULocationID as long,",
+						"          DOLocationID as long,",
+						"          passenger_count as double,",
+						"          trip_distance as double,",
+						"          fare_amount as double,",
+						"          extra as double,",
+						"          mta_tax as double,",
+						"          tip_amount as double,",
+						"          tolls_amount as double,",
+						"          ehail_fee as integer,",
+						"          improvement_surcharge as double,",
+						"          total_amount as double,",
+						"          payment_type as double,",
+						"          trip_type as double,",
+						"          congestion_surcharge as double,",
+						"          PU_Borough as string,",
+						"          PU_Zone as string,",
+						"          PU_service_zone as string,",
+						"          DO_Borough as string,",
+						"          Do_Zone as string,",
+						"          DO_service_zone as string",
+						"     ),",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     ignoreNoFilesFound: false,",
+						"     format: 'delta',",
+						"     fileSystem: 'synpswrkshp',",
+						"     folderPath: 'silver/nycgreentaxienhanced') ~> source",
+						"source(output(",
+						"          VendorID as long,",
+						"          lpep_pickup_datetime as timestamp,",
+						"          lpep_dropoff_datetime as timestamp,",
+						"          store_and_fwd_flag as string,",
+						"          RatecodeID as double,",
+						"          PULocationID as long,",
+						"          DOLocationID as long,",
+						"          passenger_count as double,",
+						"          trip_distance as double,",
+						"          fare_amount as double,",
+						"          extra as double,",
+						"          mta_tax as double,",
+						"          tip_amount as double,",
+						"          tolls_amount as double,",
+						"          ehail_fee as integer,",
+						"          improvement_surcharge as double,",
+						"          total_amount as double,",
+						"          payment_type as double,",
+						"          trip_type as double,",
+						"          congestion_surcharge as double,",
+						"          PU_Borough as string,",
+						"          PU_Zone as string,",
+						"          PU_service_zone as string,",
+						"          DO_Borough as string,",
+						"          Do_Zone as string,",
+						"          DO_service_zone as string",
+						"     ),",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     ignoreNoFilesFound: false,",
+						"     format: 'delta',",
+						"     fileSystem: 'synpswrkshp',",
+						"     folderPath: 'silver/nycgreentaxienhanced') ~> source1",
+						"source(output(",
+						"          VendorID as long,",
+						"          lpep_pickup_datetime as timestamp,",
+						"          lpep_dropoff_datetime as timestamp,",
+						"          store_and_fwd_flag as string,",
+						"          RatecodeID as double,",
+						"          PULocationID as long,",
+						"          DOLocationID as long,",
+						"          passenger_count as double,",
+						"          trip_distance as double,",
+						"          fare_amount as double,",
+						"          extra as double,",
+						"          mta_tax as double,",
+						"          tip_amount as double,",
+						"          tolls_amount as double,",
+						"          ehail_fee as integer,",
+						"          improvement_surcharge as double,",
+						"          total_amount as double,",
+						"          payment_type as double,",
+						"          trip_type as double,",
+						"          congestion_surcharge as double,",
+						"          PU_Borough as string,",
+						"          PU_Zone as string,",
+						"          PU_service_zone as string,",
+						"          DO_Borough as string,",
+						"          Do_Zone as string,",
+						"          DO_service_zone as string",
+						"     ),",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     ignoreNoFilesFound: false,",
+						"     format: 'delta',",
+						"     fileSystem: 'synpswrkshp',",
+						"     folderPath: 'silver/nycgreentaxienhanced') ~> source2",
+						"source select(mapColumn(",
+						"          VendorID,",
+						"          lpep_pickup_datetime,",
+						"          lpep_dropoff_datetime,",
+						"          PULocationID,",
+						"          DOLocationID,",
+						"          passenger_count,",
+						"          trip_distance,",
+						"          fare_amount,",
+						"          tip_amount,",
+						"          total_amount,",
+						"          PU_Borough,",
+						"          PU_Zone,",
+						"          PU_service_zone,",
+						"          DO_Borough,",
+						"          Do_Zone,",
+						"          DO_service_zone",
+						"     ),",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> select",
+						"select derive(pickupdate = toDate(lpep_pickup_datetime)) ~> derivedColumn",
+						"source1 select(mapColumn(",
+						"          PULocationID,",
+						"          PU_Borough,",
+						"          PU_Zone,",
+						"          PU_service_zone",
+						"     ),",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> selectdimpickup",
+						"selectdimpickup aggregate(groupBy(mycols = sha2(256,columns())),",
+						"     each(match(true()), $$ = first($$))) ~> DistinctRows1",
+						"source2 select(mapColumn(",
+						"          DOLocationID,",
+						"          DO_Borough,",
+						"          Do_Zone,",
+						"          DO_service_zone",
+						"     ),",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> selectdimdropoff",
+						"selectdimdropoff aggregate(groupBy(mycols = sha2(256,columns())),",
+						"     each(match(true()), $$ = first($$))) ~> DistinctRows",
+						"DistinctRows1 select(mapColumn(",
+						"          PULocationID,",
+						"          PU_Borough,",
+						"          PU_Zone,",
+						"          PU_service_zone",
+						"     ),",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> select1",
+						"DistinctRows select(mapColumn(",
+						"          DOLocationID,",
+						"          DO_Borough,",
+						"          Do_Zone,",
+						"          DO_service_zone",
+						"     ),",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> select2",
+						"derivedColumn sink(allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     format: 'parquet',",
+						"     fileSystem: 'synpswrkshp',",
+						"     folderPath: 'gold/nyctaxifact',",
+						"     compressionCodec: 'snappy',",
+						"     umask: 0022,",
+						"     preCommands: [],",
+						"     postCommands: [],",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true,",
+						"     partitionBy('key',",
+						"          0,",
+						"          pickupdate",
+						"     )) ~> sink",
+						"select1 sink(allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     format: 'parquet',",
+						"     fileSystem: 'synpswrkshp',",
+						"     folderPath: 'gold/dimpickup',",
+						"     umask: 0022,",
+						"     preCommands: [],",
+						"     postCommands: [],",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> sink1",
+						"select2 sink(allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     format: 'parquet',",
+						"     fileSystem: 'synpswrkshp',",
+						"     folderPath: 'gold/dimdropoff',",
+						"     umask: 0022,",
+						"     preCommands: [],",
+						"     postCommands: [],",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> sink2"
+					]
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/Dataflow_ParseJson')]",
+			"type": "Microsoft.DataFactory/factories/dataflows",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"type": "MappingDataFlow",
+				"typeProperties": {
+					"sources": [
+						{
+							"linkedService": {
+								"referenceName": "AzureDataLakeStorageWorkshop",
+								"type": "LinkedServiceReference"
+							},
+							"name": "source1"
+						}
+					],
+					"sinks": [
+						{
+							"linkedService": {
+								"referenceName": "AzureDataLakeStorageWorkshop",
+								"type": "LinkedServiceReference"
+							},
+							"name": "sink1"
+						}
+					],
+					"transformations": [
+						{
+							"name": "stringify1"
+						},
+						{
+							"name": "parse1"
+						}
+					],
+					"scriptLines": [
+						"source(output(",
+						"          customization as (id as short, type as string)[],",
+						"          enginecapacity as (cc as (id as short, type as string)[]),",
+						"          id as short,",
+						"          name as string,",
+						"          price as double,",
+						"          type as string",
+						"     ),",
+						"     useSchema: false,",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     ignoreNoFilesFound: false,",
+						"     format: 'json',",
+						"     fileSystem: 'synpswrkshp',",
+						"     fileName: 'SampleJsonParse.json',",
+						"     documentForm: 'arrayOfDocuments') ~> source1",
+						"source1 stringify(jsonstring = enginecapacity.cc ? string,",
+						"     format: 'json') ~> stringify1",
+						"stringify1 parse(newcol = jsonstring ? (id as short,",
+						"          type as string),",
+						"     format: 'json',",
+						"     documentForm: 'arrayOfDocuments') ~> parse1",
+						"parse1 sink(allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     format: 'json',",
+						"     fileSystem: 'synpswrkshp',",
+						"     folderPath: 'outputjson',",
+						"     umask: 0022,",
+						"     preCommands: [],",
+						"     postCommands: [],",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> sink1"
+					]
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/Dataflow_SCD1')]",
+			"type": "Microsoft.DataFactory/factories/dataflows",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"type": "MappingDataFlow",
+				"typeProperties": {
+					"sources": [
+						{
+							"linkedService": {
+								"referenceName": "AzureDataLakeStorageWorkshop",
+								"type": "LinkedServiceReference"
+							},
+							"name": "source2"
+						},
+						{
+							"linkedService": {
+								"referenceName": "AzureDataLakeStorageWorkshop",
+								"type": "LinkedServiceReference"
+							},
+							"name": "source1"
+						}
+					],
+					"sinks": [
+						{
+							"linkedService": {
+								"referenceName": "AzureDataLakeStorageWorkshop",
+								"type": "LinkedServiceReference"
+							},
+							"name": "sink1"
+						}
+					],
+					"transformations": [
+						{
+							"name": "join1"
+						},
+						{
+							"name": "LookForNULLs"
+						},
+						{
+							"name": "derivedColumn1"
+						},
+						{
+							"name": "select1"
+						},
+						{
+							"name": "derivedColumn2"
+						},
+						{
+							"name": "select2"
+						},
+						{
+							"name": "union1"
+						},
+						{
+							"name": "alterRow1"
+						}
+					],
+					"scriptLines": [
+						"source(output(",
+						"          LocationID as short,",
+						"          Borough as string,",
+						"          Zone as string,",
+						"          service_zone as string,",
+						"          inserteddate as timestamp,",
+						"          updatedDate as timestamp",
+						"     ),",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     ignoreNoFilesFound: false,",
+						"     format: 'delta',",
+						"     fileSystem: 'synpswrkshp',",
+						"     folderPath: 'bronze/SCD1') ~> source2",
+						"source(output(",
+						"          LocationID as short,",
+						"          Borough as string,",
+						"          Zone as string,",
+						"          service_zone as string",
+						"     ),",
+						"     useSchema: false,",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     ignoreNoFilesFound: false,",
+						"     format: 'delimited',",
+						"     fileSystem: 'synpswrkshp',",
+						"     fileName: 'taxizonelookup_scd1_ins.csv',",
+						"     columnDelimiter: ',',",
+						"     escapeChar: '\\\\',",
+						"     quoteChar: '\\\"',",
+						"     columnNamesAsHeader: true) ~> source1",
+						"source1, source2 join(source1@LocationID == source2@LocationID,",
+						"     joinType:'left',",
+						"     matchType:'exact',",
+						"     ignoreSpaces: false,",
+						"     broadcast: 'auto')~> join1",
+						"join1 split(isNull(source2@LocationID),",
+						"     disjoint: false) ~> LookForNULLs@(hasNULLs, noNULLs)",
+						"LookForNULLs@hasNULLs derive(inserteddate = currentTimestamp(),",
+						"          updatedDate = toTimestamp('12/31/2078')) ~> derivedColumn1",
+						"derivedColumn1 select(mapColumn(",
+						"          LocationID = LookForNULLs@hasNULLs@LocationID,",
+						"          Borough = LookForNULLs@hasNULLs@Borough,",
+						"          Zone = LookForNULLs@hasNULLs@Zone,",
+						"          service_zone = LookForNULLs@hasNULLs@service_zone,",
+						"          inserteddate,",
+						"          updatedDate",
+						"     ),",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> select1",
+						"LookForNULLs@noNULLs derive(updatedDate = currentTimestamp()) ~> derivedColumn2",
+						"derivedColumn2 select(mapColumn(",
+						"          LocationID = LookForNULLs@noNULLs@LocationID,",
+						"          Borough = LookForNULLs@noNULLs@Borough,",
+						"          Zone = LookForNULLs@noNULLs@Zone,",
+						"          service_zone = LookForNULLs@noNULLs@service_zone,",
+						"          inserteddate,",
+						"          updatedDate",
+						"     ),",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> select2",
+						"select1, select2 union(byName: true)~> union1",
+						"union1 alterRow(upsertIf(true())) ~> alterRow1",
+						"alterRow1 sink(allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     format: 'delta',",
+						"     fileSystem: 'synpswrkshp',",
+						"     folderPath: 'bronze/SCD1',",
+						"     mergeSchema: false,",
+						"     autoCompact: false,",
+						"     optimizedWrite: false,",
+						"     vacuum: 0,",
+						"     deletable: false,",
+						"     insertable: true,",
+						"     updateable: false,",
+						"     upsertable: true,",
+						"     keys:['LocationID'],",
+						"     umask: 0022,",
+						"     preCommands: [],",
+						"     postCommands: [],",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> sink1"
+					]
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/Dataflow_SCD1_PREP')]",
+			"type": "Microsoft.DataFactory/factories/dataflows",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"type": "MappingDataFlow",
+				"typeProperties": {
+					"sources": [
+						{
+							"linkedService": {
+								"referenceName": "AzureDataLakeStorageWorkshop",
+								"type": "LinkedServiceReference"
+							},
+							"name": "source1"
+						}
+					],
+					"sinks": [
+						{
+							"linkedService": {
+								"referenceName": "AzureDataLakeStorageWorkshop",
+								"type": "LinkedServiceReference"
+							},
+							"name": "sink1"
+						}
+					],
+					"transformations": [
+						{
+							"name": "derivedColumn1"
+						}
+					],
+					"scriptLines": [
+						"source(output(",
+						"          LocationID as short,",
+						"          Borough as string,",
+						"          Zone as string,",
+						"          service_zone as string",
+						"     ),",
+						"     useSchema: false,",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     ignoreNoFilesFound: false,",
+						"     format: 'delimited',",
+						"     fileSystem: 'synpswrkshp',",
+						"     fileName: 'taxizonelookup.csv',",
+						"     columnDelimiter: ',',",
+						"     escapeChar: '\\\\',",
+						"     quoteChar: '\\\"',",
+						"     columnNamesAsHeader: true) ~> source1",
+						"source1 derive(inserteddate = currentTimestamp(),",
+						"          updatedDate = toTimestamp('12/31/2078')) ~> derivedColumn1",
+						"derivedColumn1 sink(allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     format: 'delta',",
+						"     fileSystem: 'synpswrkshp',",
+						"     folderPath: 'bronze/SCD1',",
+						"     mergeSchema: false,",
+						"     autoCompact: false,",
+						"     optimizedWrite: false,",
+						"     vacuum: 0,",
+						"     deletable: false,",
+						"     insertable: true,",
+						"     updateable: false,",
+						"     upsertable: false,",
+						"     umask: 0022,",
+						"     preCommands: [],",
+						"     postCommands: [],",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> sink1"
+					]
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/Dataflow_SCD2')]",
+			"type": "Microsoft.DataFactory/factories/dataflows",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"type": "MappingDataFlow",
+				"typeProperties": {
+					"sources": [
+						{
+							"linkedService": {
+								"referenceName": "AzureDataLakeStorageWorkshop",
+								"type": "LinkedServiceReference"
+							},
+							"name": "source2"
+						},
+						{
+							"linkedService": {
+								"referenceName": "AzureDataLakeStorageWorkshop",
+								"type": "LinkedServiceReference"
+							},
+							"name": "source1"
+						}
+					],
+					"sinks": [
+						{
+							"linkedService": {
+								"referenceName": "AzureDataLakeStorageWorkshop",
+								"type": "LinkedServiceReference"
+							},
+							"name": "sink1"
+						}
+					],
+					"transformations": [
+						{
+							"name": "join1"
+						},
+						{
+							"name": "LookForNULLs"
+						},
+						{
+							"name": "derivedColumn1"
+						},
+						{
+							"name": "select1"
+						},
+						{
+							"name": "select2"
+						},
+						{
+							"name": "select3"
+						},
+						{
+							"name": "derivedColumn2"
+						},
+						{
+							"name": "select4"
+						},
+						{
+							"name": "derivedColumn3"
+						},
+						{
+							"name": "aggregate1"
+						},
+						{
+							"name": "join2"
+						},
+						{
+							"name": "join3"
+						},
+						{
+							"name": "derivedColumn4"
+						},
+						{
+							"name": "select5"
+						},
+						{
+							"name": "aggregate2"
+						},
+						{
+							"name": "union1"
+						},
+						{
+							"name": "derivedColumn5"
+						},
+						{
+							"name": "alterRow1"
+						}
+					],
+					"scriptLines": [
+						"source(output(",
+						"          LocationID as short,",
+						"          Borough as string,",
+						"          Zone as string,",
+						"          service_zone as string,",
+						"          StartDate as timestamp,",
+						"          EndDate as timestamp,",
+						"          IsCurrent as boolean,",
+						"          Processime as timestamp,",
+						"          surrogatekeycol as long",
+						"     ),",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     ignoreNoFilesFound: false,",
+						"     format: 'delta',",
+						"     fileSystem: 'synpswrkshp',",
+						"     folderPath: 'bronze/SCD2') ~> source2",
+						"source(output(",
+						"          LocationID as short,",
+						"          Borough as string,",
+						"          Zone as string,",
+						"          service_zone as string",
+						"     ),",
+						"     useSchema: false,",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     ignoreNoFilesFound: false,",
+						"     format: 'delimited',",
+						"     fileSystem: 'synpswrkshp',",
+						"     fileName: 'taxizonelookup_scd2.csv',",
+						"     columnDelimiter: ',',",
+						"     escapeChar: '\\\\',",
+						"     quoteChar: '\\\"',",
+						"     columnNamesAsHeader: true) ~> source1",
+						"join2, source2 join(LocationIDnew == LocationID",
+						"     && iscurr == IsCurrent,",
+						"     joinType:'left',",
+						"     matchType:'exact',",
+						"     ignoreSpaces: false,",
+						"     broadcast: 'auto')~> join1",
+						"join1 split(isNull(LocationID),",
+						"     disjoint: false) ~> LookForNULLs@(hasNULLs, noNULLs)",
+						"LookForNULLs@hasNULLs derive(StartDate = currentTimestamp(),",
+						"          IsCurrent = true(),",
+						"          Processime = currentTimestamp(),",
+						"          surrogatekeycolnew = iifNull(surrogatekeycol,0) + maxval+1) ~> derivedColumn1",
+						"derivedColumn1 select(mapColumn(",
+						"          LocationID = LocationIDnew,",
+						"          Borough = Boroughnew,",
+						"          Zone = Zonenew,",
+						"          service_zone = service_zonenew,",
+						"          StartDate,",
+						"          EndDate,",
+						"          IsCurrent,",
+						"          Processime,",
+						"          surrogatekeycol = surrogatekeycolnew",
+						"     ),",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> select1",
+						"LookForNULLs@noNULLs select(mapColumn(",
+						"          LocationID,",
+						"          Borough,",
+						"          Zone,",
+						"          service_zone,",
+						"          StartDate,",
+						"          EndDate,",
+						"          IsCurrent,",
+						"          Processime,",
+						"          surrogatekeycol",
+						"     ),",
+						"     skipDuplicateMapInputs: false,",
+						"     skipDuplicateMapOutputs: false) ~> select2",
+						"derivedColumn5 select(mapColumn(",
+						"          LocationIDnew = LocationID,",
+						"          Boroughnew = Borough,",
+						"          Zonenew = Zone,",
+						"          service_zonenew = service_zone,",
+						"          iscurr",
+						"     ),",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> select3",
+						"select2 derive(IsCurrent = false(),",
+						"          Processime = currentTimestamp(),",
+						"          EndDate = iifNull(currentTimestamp(), EndDate)) ~> derivedColumn2",
+						"LookForNULLs@noNULLs select(mapColumn(",
+						"          LocationID = LocationIDnew,",
+						"          Borough = Boroughnew,",
+						"          Zone = Zonenew,",
+						"          service_zone = service_zonenew,",
+						"          StartDate,",
+						"          EndDate,",
+						"          IsCurrent,",
+						"          Processime,",
+						"          surrogatekeycol",
+						"     ),",
+						"     skipDuplicateMapInputs: false,",
+						"     skipDuplicateMapOutputs: false) ~> select4",
+						"select4 derive(Processime = currentTimestamp(),",
+						"          StartDate = currentTimestamp()) ~> derivedColumn3",
+						"source2 aggregate(maxval = max(surrogatekeycol)) ~> aggregate1",
+						"select3, aggregate1 join(1==1,",
+						"     joinType:'cross',",
+						"     matchType:'exact',",
+						"     ignoreSpaces: false,",
+						"     broadcast: 'auto')~> join2",
+						"derivedColumn3, aggregate2 join(1==1,",
+						"     joinType:'cross',",
+						"     matchType:'exact',",
+						"     ignoreSpaces: false,",
+						"     broadcast: 'auto')~> join3",
+						"join3 derive(surrogatekeycol = surrogatekeycol+maxnewval) ~> derivedColumn4",
+						"derivedColumn4 select(mapColumn(",
+						"          LocationID,",
+						"          Borough,",
+						"          Zone,",
+						"          service_zone,",
+						"          StartDate,",
+						"          EndDate,",
+						"          IsCurrent,",
+						"          Processime,",
+						"          surrogatekeycol",
+						"     ),",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> select5",
+						"select1 aggregate(maxnewval = max(surrogatekeycol)) ~> aggregate2",
+						"select1, select5, derivedColumn2 union(byName: true)~> union1",
+						"source1 derive(iscurr = true()) ~> derivedColumn5",
+						"union1 alterRow(upsertIf(true())) ~> alterRow1",
+						"alterRow1 sink(allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     format: 'delta',",
+						"     fileSystem: 'synpswrkshp',",
+						"     folderPath: 'bronze/SCD2',",
+						"     mergeSchema: false,",
+						"     autoCompact: false,",
+						"     optimizedWrite: false,",
+						"     vacuum: 0,",
+						"     deletable: false,",
+						"     insertable: true,",
+						"     updateable: false,",
+						"     upsertable: true,",
+						"     keys:['surrogatekeycol'],",
+						"     umask: 0022,",
+						"     preCommands: [],",
+						"     postCommands: [],",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> sink1"
+					]
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/Dataflow_SCD2_PREP')]",
+			"type": "Microsoft.DataFactory/factories/dataflows",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"type": "MappingDataFlow",
+				"typeProperties": {
+					"sources": [
+						{
+							"linkedService": {
+								"referenceName": "AzureDataLakeStorageWorkshop",
+								"type": "LinkedServiceReference"
+							},
+							"name": "source1"
+						}
+					],
+					"sinks": [
+						{
+							"linkedService": {
+								"referenceName": "AzureDataLakeStorageWorkshop",
+								"type": "LinkedServiceReference"
+							},
+							"name": "sink1"
+						}
+					],
+					"transformations": [
+						{
+							"name": "derivedColumn1"
+						},
+						{
+							"name": "surrogateKey1"
+						}
+					],
+					"scriptLines": [
+						"source(output(",
+						"          LocationID as short,",
+						"          Borough as string,",
+						"          Zone as string,",
+						"          service_zone as string",
+						"     ),",
+						"     useSchema: false,",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     ignoreNoFilesFound: false,",
+						"     format: 'delimited',",
+						"     fileSystem: 'synpswrkshp',",
+						"     fileName: 'taxizonelookup.csv',",
+						"     columnDelimiter: ',',",
+						"     escapeChar: '\\\\',",
+						"     quoteChar: '\\\"',",
+						"     columnNamesAsHeader: true) ~> source1",
+						"source1 derive(StartDate = currentTimestamp(),",
+						"          EndDate = toTimestamp('12/31/2078'),",
+						"          IsCurrent = true(),",
+						"          Processime = currentTimestamp()) ~> derivedColumn1",
+						"derivedColumn1 keyGenerate(output(surrogatekeycol as long),",
+						"     startAt: 1000L,",
+						"     stepValue: 1L) ~> surrogateKey1",
+						"surrogateKey1 sink(allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     format: 'delta',",
+						"     fileSystem: 'synpswrkshp',",
+						"     folderPath: 'bronze/SCD2',",
+						"     mergeSchema: false,",
+						"     autoCompact: false,",
+						"     optimizedWrite: false,",
+						"     vacuum: 0,",
+						"     deletable: false,",
+						"     insertable: true,",
+						"     updateable: false,",
+						"     upsertable: false,",
+						"     umask: 0022,",
+						"     preCommands: [],",
+						"     postCommands: [],",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> sink1"
+					]
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/Dataflow_Silver_Curation')]",
+			"type": "Microsoft.DataFactory/factories/dataflows",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"type": "MappingDataFlow",
+				"typeProperties": {
+					"sources": [
+						{
+							"linkedService": {
+								"referenceName": "AzureDataLakeStorageWorkshop",
+								"type": "LinkedServiceReference"
+							},
+							"name": "source"
+						},
+						{
+							"linkedService": {
+								"referenceName": "AzureDataLakeStorageWorkshop",
+								"type": "LinkedServiceReference"
+							},
+							"name": "sourcelkp"
+						}
+					],
+					"sinks": [
+						{
+							"linkedService": {
+								"referenceName": "AzureDataLakeStorageWorkshop",
+								"type": "LinkedServiceReference"
+							},
+							"name": "sink"
+						}
+					],
+					"transformations": [
+						{
+							"name": "join"
+						},
+						{
+							"name": "select"
+						},
+						{
+							"name": "joinn"
+						},
+						{
+							"name": "selectfin"
+						}
+					],
+					"scriptLines": [
+						"source(output(",
+						"          VendorID as long,",
+						"          lpep_pickup_datetime as timestamp,",
+						"          lpep_dropoff_datetime as timestamp,",
+						"          store_and_fwd_flag as string,",
+						"          RatecodeID as double,",
+						"          PULocationID as long,",
+						"          DOLocationID as long,",
+						"          passenger_count as double,",
+						"          trip_distance as double,",
+						"          fare_amount as double,",
+						"          extra as double,",
+						"          mta_tax as double,",
+						"          tip_amount as double,",
+						"          tolls_amount as double,",
+						"          ehail_fee as integer,",
+						"          improvement_surcharge as double,",
+						"          total_amount as double,",
+						"          payment_type as double,",
+						"          trip_type as double,",
+						"          congestion_surcharge as double",
+						"     ),",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     ignoreNoFilesFound: false,",
+						"     format: 'delta',",
+						"     fileSystem: 'synpswrkshp',",
+						"     folderPath: 'bronze/NycGreenTaxi') ~> source",
+						"source(output(",
+						"          LocationID as short,",
+						"          Borough as string,",
+						"          Zone as string,",
+						"          service_zone as string",
+						"     ),",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     ignoreNoFilesFound: true,",
+						"     format: 'delta',",
+						"     fileSystem: 'synpswrkshp',",
+						"     folderPath: 'bronze/zonelookup') ~> sourcelkp",
+						"source, sourcelkp join(PULocationID == LocationID,",
+						"     joinType:'left',",
+						"     matchType:'exact',",
+						"     ignoreSpaces: false,",
+						"     broadcast: 'auto')~> join",
+						"join select(mapColumn(",
+						"          VendorID,",
+						"          lpep_pickup_datetime,",
+						"          lpep_dropoff_datetime,",
+						"          store_and_fwd_flag,",
+						"          RatecodeID,",
+						"          PULocationID,",
+						"          DOLocationID,",
+						"          passenger_count,",
+						"          trip_distance,",
+						"          fare_amount,",
+						"          extra,",
+						"          mta_tax,",
+						"          tip_amount,",
+						"          tolls_amount,",
+						"          ehail_fee,",
+						"          improvement_surcharge,",
+						"          total_amount,",
+						"          payment_type,",
+						"          trip_type,",
+						"          congestion_surcharge,",
+						"          PU_Borough = Borough,",
+						"          PU_Zone = Zone,",
+						"          PU_service_zone = service_zone",
+						"     ),",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> select",
+						"select, sourcelkp join(VendorID == LocationID,",
+						"     joinType:'left',",
+						"     matchType:'exact',",
+						"     ignoreSpaces: false,",
+						"     broadcast: 'auto')~> joinn",
+						"joinn select(mapColumn(",
+						"          VendorID,",
+						"          lpep_pickup_datetime,",
+						"          lpep_dropoff_datetime,",
+						"          store_and_fwd_flag,",
+						"          RatecodeID,",
+						"          PULocationID,",
+						"          DOLocationID,",
+						"          passenger_count,",
+						"          trip_distance,",
+						"          fare_amount,",
+						"          extra,",
+						"          mta_tax,",
+						"          tip_amount,",
+						"          tolls_amount,",
+						"          ehail_fee,",
+						"          improvement_surcharge,",
+						"          total_amount,",
+						"          payment_type,",
+						"          trip_type,",
+						"          congestion_surcharge,",
+						"          PU_Borough,",
+						"          PU_Zone,",
+						"          PU_service_zone,",
+						"          DO_Borough = Borough,",
+						"          Do_Zone = Zone,",
+						"          DO_service_zone = service_zone",
+						"     ),",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> selectfin",
+						"selectfin sink(allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     format: 'delta',",
+						"     fileSystem: 'synpswrkshp',",
+						"     folderPath: 'silver/nycgreentaxienhanced',",
+						"     overwrite: true,",
+						"     mergeSchema: false,",
+						"     autoCompact: false,",
+						"     optimizedWrite: false,",
+						"     vacuum: 0,",
+						"     deletable: false,",
+						"     insertable: true,",
+						"     updateable: false,",
+						"     upsertable: false,",
+						"     umask: 0022,",
+						"     preCommands: [],",
+						"     postCommands: [],",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> sink"
+					]
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/Dataflow_WarmUpCluster')]",
+			"type": "Microsoft.DataFactory/factories/dataflows",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"type": "MappingDataFlow",
+				"typeProperties": {
+					"sources": [
+						{
+							"linkedService": {
+								"referenceName": "AzureDataLakeStorageWorkshop",
+								"type": "LinkedServiceReference"
+							},
+							"name": "source1"
+						}
+					],
+					"sinks": [
+						{
+							"linkedService": {
+								"referenceName": "AzureDataLakeStorageWorkshop",
+								"type": "LinkedServiceReference"
+							},
+							"name": "sink1"
+						}
+					],
+					"transformations": [],
+					"scriptLines": [
+						"source(useSchema: false,",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     ignoreNoFilesFound: false,",
+						"     format: 'delimited',",
+						"     fileSystem: 'synpswrkshp',",
+						"     fileName: 'vendoridlkp.csv',",
+						"     columnDelimiter: ',',",
+						"     escapeChar: '\\\\',",
+						"     quoteChar: '\\\"',",
+						"     columnNamesAsHeader: false) ~> source1",
+						"source1 sink(allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     format: 'parquet',",
+						"     fileSystem: 'synpswrkshp',",
+						"     folderPath: 'Output/warm',",
+						"     umask: 0022,",
+						"     preCommands: [],",
+						"     postCommands: [],",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> sink1"
+					]
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/Dataflow_bronze_curation_upsert')]",
+			"type": "Microsoft.DataFactory/factories/dataflows",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"type": "MappingDataFlow",
+				"typeProperties": {
+					"sources": [
+						{
+							"linkedService": {
+								"referenceName": "AzureDataLakeStorageWorkshop",
+								"type": "LinkedServiceReference"
+							},
+							"name": "source1"
+						}
+					],
+					"sinks": [
+						{
+							"linkedService": {
+								"referenceName": "AzureDataLakeStorageWorkshop",
+								"type": "LinkedServiceReference"
+							},
+							"name": "sink"
+						}
+					],
+					"transformations": [
+						{
+							"name": "alterRow1"
+						}
+					],
+					"scriptLines": [
+						"source(output(",
+						"          LocationID as short,",
+						"          Borough as string,",
+						"          Zone as string,",
+						"          service_zone as string",
+						"     ),",
+						"     useSchema: false,",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     ignoreNoFilesFound: false,",
+						"     format: 'delimited',",
+						"     fileSystem: 'synpswrkshp',",
+						"     fileName: 'taxizonelookup.csv',",
+						"     columnDelimiter: ',',",
+						"     escapeChar: '\\\\',",
+						"     quoteChar: '\\\"',",
+						"     columnNamesAsHeader: true) ~> source1",
+						"source1 alterRow(upsertIf(true())) ~> alterRow1",
+						"alterRow1 sink(allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     format: 'delta',",
+						"     fileSystem: 'synpswrkshp',",
+						"     folderPath: 'bronze/zonelookup',",
+						"     mergeSchema: false,",
+						"     autoCompact: false,",
+						"     optimizedWrite: false,",
+						"     vacuum: 0,",
+						"     deletable: false,",
+						"     insertable: true,",
+						"     updateable: false,",
+						"     upsertable: true,",
+						"     keys:['LocationID','Borough','Zone','service_zone'],",
+						"     umask: 0022,",
+						"     preCommands: [],",
+						"     postCommands: [],",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> sink"
+					]
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/FLW_GreenTaxi')]",
+			"type": "Microsoft.DataFactory/factories/dataflows",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"type": "Flowlet",
+				"typeProperties": {
+					"sources": [
+						{
+							"linkedService": {
+								"referenceName": "AzureDataLakeStorageWorkshop",
+								"type": "LinkedServiceReference"
+							},
+							"name": "sourceadls"
+						}
+					],
+					"sinks": [],
+					"transformations": [
+						{
+							"name": "output"
+						}
+					],
+					"scriptLines": [
+						"source(output(",
+						"          VendorID as long,",
+						"          lpep_pickup_datetime as timestamp,",
+						"          lpep_dropoff_datetime as timestamp,",
+						"          store_and_fwd_flag as string,",
+						"          RatecodeID as double,",
+						"          PULocationID as long,",
+						"          DOLocationID as long,",
+						"          passenger_count as double,",
+						"          trip_distance as double,",
+						"          fare_amount as double,",
+						"          extra as double,",
+						"          mta_tax as double,",
+						"          tip_amount as double,",
+						"          tolls_amount as double,",
+						"          ehail_fee as integer,",
+						"          improvement_surcharge as double,",
+						"          total_amount as double,",
+						"          payment_type as double,",
+						"          trip_type as double,",
+						"          congestion_surcharge as double",
+						"     ),",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     ignoreNoFilesFound: false,",
+						"     format: 'parquet',",
+						"     fileSystem: 'synpswrkshp',",
+						"     fileName: 'green_tripdata_2022-11.parquet') ~> sourceadls",
+						"sourceadls output() ~> output"
+					]
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/adfcdc1')]",
+			"type": "Microsoft.DataFactory/factories/adfcdcs",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"SourceConnectionsInfo": [
+					{
+						"SourceEntities": [
+							{
+								"name": "dbo.ts2_table",
+								"properties": {
+									"schema": [],
+									"dslConnectorProperties": [
+										{
+											"name": "schemaName",
+											"value": "dbo"
+										},
+										{
+											"name": "tableName",
+											"value": "ts2_table"
+										},
+										{
+											"name": "enableCdc",
+											"value": true
+										},
+										{
+											"name": "waterMarkColumn",
+											"value": "Creationtime"
+										}
+									]
+								}
+							}
+						],
+						"Connection": {
+							"linkedService": {
+								"referenceName": "AzureSqlDatabasecdc",
+								"type": "LinkedServiceReference"
+							},
+							"linkedServiceType": "AzureSqlDatabase",
+							"type": "linkedservicetype",
+							"isInlineDataset": true,
+							"commonDslConnectorProperties": [
+								{
+									"name": "allowSchemaDrift",
+									"value": true
+								},
+								{
+									"name": "inferDriftedColumnTypes",
+									"value": true
+								},
+								{
+									"name": "format",
+									"value": "table"
+								},
+								{
+									"name": "store",
+									"value": "sqlserver"
+								},
+								{
+									"name": "databaseType",
+									"value": "databaseType"
+								},
+								{
+									"name": "database",
+									"value": "database"
+								},
+								{
+									"name": "skipInitialLoad",
+									"value": true
+								}
+							]
+						}
+					}
+				],
+				"TargetConnectionsInfo": [
+					{
+						"TargetEntities": [
+							{
+								"name": "data/ts2_cdc/dbo.ts2_table",
+								"properties": {
+									"schema": [],
+									"dslConnectorProperties": [
+										{
+											"name": "container",
+											"value": "data"
+										},
+										{
+											"name": "fileSystem",
+											"value": "data"
+										},
+										{
+											"name": "folderPath",
+											"value": "ts2_cdc/dbo.ts2_table"
+										},
+										{
+											"name": "keys",
+											"value": [
+												"Creationtime"
+											]
+										},
+										{
+											"name": "deletable",
+											"value": true
+										},
+										{
+											"name": "updateable",
+											"value": true
+										},
+										{
+											"name": "upsertable",
+											"value": true
+										},
+										{
+											"name": "defaultToUpsert",
+											"value": true
+										}
+									]
+								}
+							}
+						],
+						"Connection": {
+							"linkedService": {
+								"referenceName": "linkedServiceblobcdc",
+								"type": "LinkedServiceReference"
+							},
+							"linkedServiceType": "AzureBlobStorage",
+							"type": "linkedservicetype",
+							"isInlineDataset": true,
+							"commonDslConnectorProperties": [
+								{
+									"name": "allowSchemaDrift",
+									"value": true
+								},
+								{
+									"name": "inferDriftedColumnTypes",
+									"value": true
+								},
+								{
+									"name": "format",
+									"value": "delta"
+								},
+								{
+									"name": "mergeSchema",
+									"value": true
+								},
+								{
+									"name": "autoCompact",
+									"value": true
+								},
+								{
+									"name": "optimizedWrite",
+									"value": true
+								},
+								{
+									"name": "deletable",
+									"value": false
+								},
+								{
+									"name": "insertable",
+									"value": true
+								},
+								{
+									"name": "updateable",
+									"value": false
+								},
+								{
+									"name": "upsertable",
+									"value": false
+								},
+								{
+									"name": "skipDuplicateMapInputs",
+									"value": true
+								},
+								{
+									"name": "skipDuplicateMapOutputs",
+									"value": true
+								}
+							]
+						},
+						"DataMapperMappings": [
+							{
+								"targetEntityName": "data/ts2_cdc/dbo.ts2_table",
+								"sourceEntityName": "dbo.ts2_table",
+								"sourceConnectionReference": {
+									"connectionName": "AzureSqlDatabasecdc",
+									"type": "linkedservicetype"
+								},
+								"attributeMappingInfo": {
+									"attributeMappings": []
+								}
+							}
+						],
+						"Relationships": []
+					}
+				],
+				"Policy": {
+					"recurrence": {
+						"frequency": "Minute",
+						"interval": 1
+					},
+					"mode": "Microbatch"
+				},
+				"allowVNetOverride": false
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/PL_Bronze_Curation_Upsert')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "Data flow",
+						"type": "ExecuteDataFlow",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"dataflow": {
+								"referenceName": "Dataflow_bronze_curation_upsert",
+								"type": "DataFlowReference",
+								"parameters": {},
+								"datasetParameters": {
+									"source1": {},
+									"sink": {}
+								}
+							},
+							"staging": {},
+							"compute": {
+								"coreCount": 8,
+								"computeType": "General"
+							},
+							"traceLevel": "Fine"
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"annotations": [],
+				"lastPublishTime": "2023-02-10T05:30:56Z"
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/dataflows/Dataflow_bronze_curation_upsert')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/PL_FactDIM')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "Data flow1",
+						"type": "ExecuteDataFlow",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"dataflow": {
+								"referenceName": "Dataflow_FactDIMtableloading",
+								"type": "DataFlowReference",
+								"parameters": {},
+								"datasetParameters": {
+									"source1": {},
+									"source2": {},
+									"source3": {},
+									"source4": {},
+									"sink1": {},
+									"sink2": {},
+									"sink3": {},
+									"sink4": {}
+								}
+							},
+							"staging": {},
+							"compute": {
+								"coreCount": 8,
+								"computeType": "General"
+							},
+							"traceLevel": "Fine"
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"annotations": [],
+				"lastPublishTime": "2023-02-12T08:13:10Z"
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/dataflows/Dataflow_FactDIMtableloading')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/PL_GENERIC_INGEST_WATERMARK')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "Lookup Previous Watermark Value",
+						"type": "Lookup",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "SqlServerSource",
+								"sqlReaderQuery": {
+									"value": "select * from dbo.table_store_watermark_value where TableName= '@{pipeline().parameters.TableName}' and servername = '@{pipeline().parameters.ServerName}'",
+									"type": "Expression"
+								},
+								"queryTimeout": "02:00:00",
+								"partitionOption": "None"
+							},
+							"dataset": {
+								"referenceName": "DS_SQL_Config",
+								"type": "DatasetReference",
+								"parameters": {}
+							}
+						}
+					},
+					{
+						"name": "Lookup Current Watermark Value",
+						"type": "Lookup",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "SqlServerSource",
+								"sqlReaderQuery": {
+									"value": "select MAX(@{pipeline().parameters.WaterMarkColumnName}) as NewWatermarkvalue from @{pipeline().parameters.TableName}",
+									"type": "Expression"
+								},
+								"queryTimeout": "02:00:00",
+								"partitionOption": "None"
+							},
+							"dataset": {
+								"referenceName": "DS_SQL_Generic",
+								"type": "DatasetReference",
+								"parameters": {
+									"ServerName": {
+										"value": "@pipeline().parameters.ServerName",
+										"type": "Expression"
+									},
+									"DBName": {
+										"value": "@pipeline().parameters.DBName",
+										"type": "Expression"
+									},
+									"SchemaName": {
+										"value": "@pipeline().parameters.SchemaName",
+										"type": "Expression"
+									},
+									"TableName": {
+										"value": "@pipeline().parameters.TableName",
+										"type": "Expression"
+									}
+								}
+							}
+						}
+					},
+					{
+						"name": "Copy data incremental watermark",
+						"type": "Copy",
+						"dependsOn": [
+							{
+								"activity": "Lookup Previous Watermark Value",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							},
+							{
+								"activity": "Lookup Current Watermark Value",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "SqlServerSource",
+								"sqlReaderQuery": {
+									"value": "select * from @{pipeline().parameters.TableName} where @{pipeline().parameters.WaterMarkColumnName} > '@{activity('Lookup Previous Watermark Value').output.firstRow.WatermarkValue}' and @{pipeline().parameters.WaterMarkColumnName} <= '@{activity('Lookup Current Watermark Value').output.firstRow.NewWatermarkvalue}'",
+									"type": "Expression"
+								},
+								"queryTimeout": "02:00:00",
+								"partitionOption": "None"
+							},
+							"sink": {
+								"type": "ParquetSink",
+								"storeSettings": {
+									"type": "AzureBlobFSWriteSettings"
+								},
+								"formatSettings": {
+									"type": "ParquetWriteSettings"
+								}
+							},
+							"enableStaging": false,
+							"translator": {
+								"type": "TabularTranslator",
+								"typeConversion": true,
+								"typeConversionSettings": {
+									"allowDataTruncation": true,
+									"treatBooleanAsNumber": false
+								}
+							}
+						},
+						"inputs": [
+							{
+								"referenceName": "DS_SQL_Generic",
+								"type": "DatasetReference",
+								"parameters": {
+									"ServerName": {
+										"value": "@pipeline().parameters.ServerName",
+										"type": "Expression"
+									},
+									"DBName": {
+										"value": "@pipeline().parameters.DBName",
+										"type": "Expression"
+									},
+									"SchemaName": {
+										"value": "@pipeline().parameters.SchemaName",
+										"type": "Expression"
+									},
+									"TableName": {
+										"value": "@pipeline().parameters.TableName",
+										"type": "Expression"
+									}
+								}
+							}
+						],
+						"outputs": [
+							{
+								"referenceName": "DS_ADLSGEN2",
+								"type": "DatasetReference",
+								"parameters": {
+									"ADLSContainerName": {
+										"value": "@pipeline().parameters.ADLSContainerName",
+										"type": "Expression"
+									},
+									"DirectoryName": "@concat(pipeline().parameters.TableName,'/','year=',formatDateTime(utcnow(),'yyyy'),'/','month=',formatDateTime(utcnow(),'MM'),'/','day=',formatDateTime(utcnow(),'dd'))"
+								}
+							}
+						]
+					},
+					{
+						"name": "Insert Log Success",
+						"type": "SqlServerStoredProcedure",
+						"dependsOn": [
+							{
+								"activity": "Update WaterMark Value",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"storedProcedureName": "[[dbo].[InsertLog]",
+							"storedProcedureParameters": {
+								"BronzeCount": {
+									"value": {
+										"value": "@activity('Copy data incremental watermark').output.rowsCopied",
+										"type": "Expression"
+									},
+									"type": "Int64"
+								},
+								"DbName": {
+									"value": {
+										"value": "@pipeline().parameters.DBName",
+										"type": "Expression"
+									},
+									"type": "String"
+								},
+								"RunStatus": {
+									"value": "Sucess",
+									"type": "String"
+								},
+								"ServerName": {
+									"value": {
+										"value": "@pipeline().parameters.ServerName",
+										"type": "Expression"
+									},
+									"type": "String"
+								},
+								"SourceCount": {
+									"value": {
+										"value": "@activity('Copy data incremental watermark').output.rowsRead",
+										"type": "Expression"
+									},
+									"type": "Int64"
+								},
+								"TableName": {
+									"value": {
+										"value": "@pipeline().parameters.TableName",
+										"type": "Expression"
+									},
+									"type": "String"
+								},
+								"error": {
+									"value": "",
+									"type": "String"
+								}
+							}
+						},
+						"linkedServiceName": {
+							"referenceName": "SqlServerconfig",
+							"type": "LinkedServiceReference"
+						}
+					},
+					{
+						"name": "Insert Log Failure",
+						"type": "SqlServerStoredProcedure",
+						"dependsOn": [
+							{
+								"activity": "Copy data incremental watermark",
+								"dependencyConditions": [
+									"Failed"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"storedProcedureName": "[[dbo].[InsertLog]",
+							"storedProcedureParameters": {
+								"BronzeCount": {
+									"value": {
+										"value": "@activity('Copy data incremental watermark').output?.rowsCopied",
+										"type": "Expression"
+									},
+									"type": "Int64"
+								},
+								"DbName": {
+									"value": {
+										"value": "@pipeline().parameters.DBName",
+										"type": "Expression"
+									},
+									"type": "String"
+								},
+								"RunStatus": {
+									"value": "Failure",
+									"type": "String"
+								},
+								"ServerName": {
+									"value": {
+										"value": "@pipeline().parameters.ServerName",
+										"type": "Expression"
+									},
+									"type": "String"
+								},
+								"SourceCount": {
+									"value": {
+										"value": "@activity('Copy data incremental watermark').output?.rowsRead",
+										"type": "Expression"
+									},
+									"type": "Int64"
+								},
+								"TableName": {
+									"value": {
+										"value": "@pipeline().parameters.TableName",
+										"type": "Expression"
+									},
+									"type": "String"
+								},
+								"error": {
+									"value": {
+										"value": "@activity('Copy data incremental watermark').error?.message",
+										"type": "Expression"
+									},
+									"type": "String"
+								}
+							}
+						},
+						"linkedServiceName": {
+							"referenceName": "SqlServerconfig",
+							"type": "LinkedServiceReference"
+						}
+					},
+					{
+						"name": "Update WaterMark Value",
+						"type": "SqlServerStoredProcedure",
+						"dependsOn": [
+							{
+								"activity": "Copy data incremental watermark",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"storedProcedureName": "[[dbo].[Update_WaterMark_Value]",
+							"storedProcedureParameters": {
+								"serverName": {
+									"value": {
+										"value": "@pipeline().parameters.ServerName",
+										"type": "Expression"
+									},
+									"type": "String"
+								},
+								"TableName": {
+									"value": {
+										"value": "@pipeline().parameters.TableName",
+										"type": "Expression"
+									},
+									"type": "String"
+								},
+								"watermark": {
+									"value": {
+										"value": "@activity('Lookup Current Watermark Value').output.firstRow.NewWatermarkvalue",
+										"type": "Expression"
+									},
+									"type": "DateTime"
+								}
+							}
+						},
+						"linkedServiceName": {
+							"referenceName": "SqlServerconfig",
+							"type": "LinkedServiceReference"
+						}
+					},
+					{
+						"name": "Copy data to staging for incremental processing",
+						"type": "Copy",
+						"dependsOn": [
+							{
+								"activity": "Update WaterMark Value",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "ParquetSource",
+								"storeSettings": {
+									"type": "AzureBlobFSReadSettings",
+									"recursive": true,
+									"wildcardFolderPath": {
+										"value": "@concat(pipeline().parameters.TableName,'/','year=',formatDateTime(utcnow(),'yyyy'),'/','month=',formatDateTime(utcnow(),'MM'),'/','day=',formatDateTime(utcnow(),'dd'))",
+										"type": "Expression"
+									},
+									"wildcardFileName": "*.parquet",
+									"enablePartitionDiscovery": false
+								}
+							},
+							"sink": {
+								"type": "ParquetSink",
+								"storeSettings": {
+									"type": "AzureBlobFSWriteSettings"
+								},
+								"formatSettings": {
+									"type": "ParquetWriteSettings"
+								}
+							},
+							"enableStaging": false,
+							"translator": {
+								"type": "TabularTranslator",
+								"typeConversion": true,
+								"typeConversionSettings": {
+									"allowDataTruncation": true,
+									"treatBooleanAsNumber": false
+								}
+							}
+						},
+						"inputs": [
+							{
+								"referenceName": "DS_ADLSGEN2",
+								"type": "DatasetReference",
+								"parameters": {
+									"ADLSContainerName": "@pipeline().parameters.ADLSContainerName",
+									"DirectoryName": "@concat(pipeline().parameters.TableName,'/','year=',formatDateTime(utcnow(),'yyyy'),'/','month=',formatDateTime(utcnow(),'MM'),'/','day=',formatDateTime(utcnow(),'dd'))"
+								}
+							}
+						],
+						"outputs": [
+							{
+								"referenceName": "DS_ADLSGEN2",
+								"type": "DatasetReference",
+								"parameters": {
+									"ADLSContainerName": {
+										"value": "@pipeline().parameters.StageDirectoryName",
+										"type": "Expression"
+									},
+									"DirectoryName": {
+										"value": "@concat(pipeline().parameters.ServerName,'/',pipeline().parameters.TableName)",
+										"type": "Expression"
+									}
+								}
+							}
+						]
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"parameters": {
+					"ServerName": {
+						"type": "string",
+						"defaultValue": "sqlpocnonprod.database.windows.net"
+					},
+					"DBName": {
+						"type": "string",
+						"defaultValue": "POC"
+					},
+					"SchemaName": {
+						"type": "string",
+						"defaultValue": "dbo"
+					},
+					"TableName": {
+						"type": "string",
+						"defaultValue": "project_table"
+					},
+					"ADLSContainerName": {
+						"type": "string",
+						"defaultValue": "landingbronze"
+					},
+					"ADLSDirectoryName": {
+						"type": "string"
+					},
+					"StageDirectoryName": {
+						"type": "string",
+						"defaultValue": "stgprocessing"
+					},
+					"WaterMarkColumnName": {
+						"type": "string",
+						"defaultValue": "Creationtime"
+					}
+				},
+				"annotations": [],
+				"lastPublishTime": "2024-02-20T15:44:07Z"
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/PL_GENERIC_INGEST_WATERMARK1')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "Lookup Previous Watermark Value",
+						"type": "Lookup",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "SqlServerSource",
+								"sqlReaderQuery": {
+									"value": "select * from dbo.table_store_watermark_value where TableName= '@{pipeline().parameters.TableName}' and servername = '@{pipeline().parameters.ServerName}'",
+									"type": "Expression"
+								},
+								"queryTimeout": "02:00:00",
+								"partitionOption": "None"
+							},
+							"dataset": {
+								"referenceName": "DS_SQL_Config1",
+								"type": "DatasetReference",
+								"parameters": {}
+							}
+						}
+					},
+					{
+						"name": "Lookup Current Watermark Value",
+						"type": "Lookup",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "SqlServerSource",
+								"sqlReaderQuery": {
+									"value": "select MAX(@{pipeline().parameters.WaterMarkColumnName}) as NewWatermarkvalue from @{pipeline().parameters.TableName}",
+									"type": "Expression"
+								},
+								"queryTimeout": "02:00:00",
+								"partitionOption": "None"
+							},
+							"dataset": {
+								"referenceName": "DS_SQL_Generic1",
+								"type": "DatasetReference",
+								"parameters": {
+									"ServerName": {
+										"value": "@pipeline().parameters.ServerName",
+										"type": "Expression"
+									},
+									"DBName": {
+										"value": "@pipeline().parameters.DBName",
+										"type": "Expression"
+									},
+									"SchemaName": {
+										"value": "@pipeline().parameters.SchemaName",
+										"type": "Expression"
+									},
+									"TableName": {
+										"value": "@pipeline().parameters.TableName",
+										"type": "Expression"
+									}
+								}
+							}
+						}
+					},
+					{
+						"name": "Copy data incremental watermark",
+						"type": "Copy",
+						"dependsOn": [
+							{
+								"activity": "Lookup Previous Watermark Value",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							},
+							{
+								"activity": "Lookup Current Watermark Value",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "SqlServerSource",
+								"sqlReaderQuery": {
+									"value": "select * from @{pipeline().parameters.TableName} where @{pipeline().parameters.WaterMarkColumnName} > '@{activity('Lookup Previous Watermark Value').output.firstRow.WatermarkValue}' and @{pipeline().parameters.WaterMarkColumnName} <= '@{activity('Lookup Current Watermark Value').output.firstRow.NewWatermarkvalue}'",
+									"type": "Expression"
+								},
+								"queryTimeout": "02:00:00",
+								"partitionOption": "None"
+							},
+							"sink": {
+								"type": "ParquetSink",
+								"storeSettings": {
+									"type": "AzureBlobFSWriteSettings"
+								},
+								"formatSettings": {
+									"type": "ParquetWriteSettings"
+								}
+							},
+							"enableStaging": false,
+							"translator": {
+								"type": "TabularTranslator",
+								"typeConversion": true,
+								"typeConversionSettings": {
+									"allowDataTruncation": true,
+									"treatBooleanAsNumber": false
+								}
+							}
+						},
+						"inputs": [
+							{
+								"referenceName": "DS_SQL_Generic1",
+								"type": "DatasetReference",
+								"parameters": {
+									"ServerName": {
+										"value": "@pipeline().parameters.ServerName",
+										"type": "Expression"
+									},
+									"DBName": {
+										"value": "@pipeline().parameters.DBName",
+										"type": "Expression"
+									},
+									"SchemaName": {
+										"value": "@pipeline().parameters.SchemaName",
+										"type": "Expression"
+									},
+									"TableName": {
+										"value": "@pipeline().parameters.TableName",
+										"type": "Expression"
+									}
+								}
+							}
+						],
+						"outputs": [
+							{
+								"referenceName": "DS_ADLSGEN21",
+								"type": "DatasetReference",
+								"parameters": {
+									"ADLSContainerName": {
+										"value": "@pipeline().parameters.ADLSContainerName",
+										"type": "Expression"
+									},
+									"DirectoryName": "@concat(pipeline().parameters.TableName,'/','year=',formatDateTime(utcnow(),'yyyy'),'/','month=',formatDateTime(utcnow(),'MM'),'/','day=',formatDateTime(utcnow(),'dd'))"
+								}
+							}
+						]
+					},
+					{
+						"name": "Insert Log Success",
+						"type": "SqlServerStoredProcedure",
+						"dependsOn": [
+							{
+								"activity": "Update WaterMark Value",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"storedProcedureName": "[[dbo].[InsertLog]",
+							"storedProcedureParameters": {
+								"BronzeCount": {
+									"value": {
+										"value": "@activity('Copy data incremental watermark').output.rowsCopied",
+										"type": "Expression"
+									},
+									"type": "Int64"
+								},
+								"DbName": {
+									"value": {
+										"value": "@pipeline().parameters.DBName",
+										"type": "Expression"
+									},
+									"type": "String"
+								},
+								"RunStatus": {
+									"value": "Sucess",
+									"type": "String"
+								},
+								"ServerName": {
+									"value": {
+										"value": "@pipeline().parameters.ServerName",
+										"type": "Expression"
+									},
+									"type": "String"
+								},
+								"SourceCount": {
+									"value": {
+										"value": "@activity('Copy data incremental watermark').output.rowsRead",
+										"type": "Expression"
+									},
+									"type": "Int64"
+								},
+								"TableName": {
+									"value": {
+										"value": "@pipeline().parameters.TableName",
+										"type": "Expression"
+									},
+									"type": "String"
+								},
+								"error": {
+									"value": "",
+									"type": "String"
+								}
+							}
+						},
+						"linkedServiceName": {
+							"referenceName": "SqlServer1",
+							"type": "LinkedServiceReference"
+						}
+					},
+					{
+						"name": "Insert Log Failure",
+						"type": "SqlServerStoredProcedure",
+						"dependsOn": [
+							{
+								"activity": "Copy data incremental watermark",
+								"dependencyConditions": [
+									"Failed"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"storedProcedureName": "[[dbo].[InsertLog]",
+							"storedProcedureParameters": {
+								"BronzeCount": {
+									"value": {
+										"value": "@activity('Copy data incremental watermark').output?.rowsCopied",
+										"type": "Expression"
+									},
+									"type": "Int64"
+								},
+								"DbName": {
+									"value": {
+										"value": "@pipeline().parameters.DBName",
+										"type": "Expression"
+									},
+									"type": "String"
+								},
+								"RunStatus": {
+									"value": "Failure",
+									"type": "String"
+								},
+								"ServerName": {
+									"value": {
+										"value": "@pipeline().parameters.ServerName",
+										"type": "Expression"
+									},
+									"type": "String"
+								},
+								"SourceCount": {
+									"value": {
+										"value": "@activity('Copy data incremental watermark').output?.rowsRead",
+										"type": "Expression"
+									},
+									"type": "Int64"
+								},
+								"TableName": {
+									"value": {
+										"value": "@pipeline().parameters.TableName",
+										"type": "Expression"
+									},
+									"type": "String"
+								},
+								"error": {
+									"value": {
+										"value": "@activity('Copy data incremental watermark').error?.message",
+										"type": "Expression"
+									},
+									"type": "String"
+								}
+							}
+						},
+						"linkedServiceName": {
+							"referenceName": "SqlServer1",
+							"type": "LinkedServiceReference"
+						}
+					},
+					{
+						"name": "Update WaterMark Value",
+						"type": "SqlServerStoredProcedure",
+						"dependsOn": [
+							{
+								"activity": "Copy data incremental watermark",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"storedProcedureName": "[[dbo].[Update_WaterMark_Value]",
+							"storedProcedureParameters": {
+								"serverName": {
+									"value": {
+										"value": "@pipeline().parameters.ServerName",
+										"type": "Expression"
+									},
+									"type": "String"
+								},
+								"TableName": {
+									"value": {
+										"value": "@pipeline().parameters.TableName",
+										"type": "Expression"
+									},
+									"type": "String"
+								},
+								"watermark": {
+									"value": {
+										"value": "@activity('Lookup Current Watermark Value').output.firstRow.NewWatermarkvalue",
+										"type": "Expression"
+									},
+									"type": "DateTime"
+								}
+							}
+						},
+						"linkedServiceName": {
+							"referenceName": "SqlServer1",
+							"type": "LinkedServiceReference"
+						}
+					},
+					{
+						"name": "Copy data to staging for incremental processing",
+						"type": "Copy",
+						"dependsOn": [
+							{
+								"activity": "Update WaterMark Value",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "ParquetSource",
+								"storeSettings": {
+									"type": "AzureBlobFSReadSettings",
+									"recursive": true,
+									"wildcardFolderPath": {
+										"value": "@concat(pipeline().parameters.TableName,'/','year=',formatDateTime(utcnow(),'yyyy'),'/','month=',formatDateTime(utcnow(),'MM'),'/','day=',formatDateTime(utcnow(),'dd'))",
+										"type": "Expression"
+									},
+									"wildcardFileName": "*.parquet",
+									"enablePartitionDiscovery": false
+								}
+							},
+							"sink": {
+								"type": "ParquetSink",
+								"storeSettings": {
+									"type": "AzureBlobFSWriteSettings"
+								},
+								"formatSettings": {
+									"type": "ParquetWriteSettings"
+								}
+							},
+							"enableStaging": false,
+							"translator": {
+								"type": "TabularTranslator",
+								"typeConversion": true,
+								"typeConversionSettings": {
+									"allowDataTruncation": true,
+									"treatBooleanAsNumber": false
+								}
+							}
+						},
+						"inputs": [
+							{
+								"referenceName": "DS_ADLSGEN21",
+								"type": "DatasetReference",
+								"parameters": {
+									"ADLSContainerName": "@pipeline().parameters.ADLSContainerName",
+									"DirectoryName": "@concat(pipeline().parameters.TableName,'/','year=',formatDateTime(utcnow(),'yyyy'),'/','month=',formatDateTime(utcnow(),'MM'),'/','day=',formatDateTime(utcnow(),'dd'))"
+								}
+							}
+						],
+						"outputs": [
+							{
+								"referenceName": "DS_ADLSGEN21",
+								"type": "DatasetReference",
+								"parameters": {
+									"ADLSContainerName": {
+										"value": "@pipeline().parameters.StageDirectoryName",
+										"type": "Expression"
+									},
+									"DirectoryName": {
+										"value": "@concat(pipeline().parameters.ServerName,'/',pipeline().parameters.TableName)",
+										"type": "Expression"
+									}
+								}
+							}
+						]
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"parameters": {
+					"ServerName": {
+						"type": "string",
+						"defaultValue": "sqlpocnonprod.database.windows.net"
+					},
+					"DBName": {
+						"type": "string",
+						"defaultValue": "POC"
+					},
+					"SchemaName": {
+						"type": "string",
+						"defaultValue": "dbo"
+					},
+					"TableName": {
+						"type": "string",
+						"defaultValue": "project_table"
+					},
+					"ADLSContainerName": {
+						"type": "string",
+						"defaultValue": "landingbronze"
+					},
+					"ADLSDirectoryName": {
+						"type": "string"
+					},
+					"StageDirectoryName": {
+						"type": "string",
+						"defaultValue": "stgprocessing"
+					},
+					"WaterMarkColumnName": {
+						"type": "string",
+						"defaultValue": "Creationtime"
+					}
+				},
+				"annotations": []
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/datasets/DS_SQL_Generic1')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/PL_GENERIC_SQL_CDC_INGEST')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "Get CDC Change Count",
+						"type": "Lookup",
+						"dependsOn": [
+							{
+								"activity": "LookupLSNCDC",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "SqlServerSource",
+								"sqlReaderQuery": {
+									"value": "@concat('DECLARE @begin_time datetime, @end_time datetime, @from_lsn binary(10), @to_lsn binary(10) ; \nSET @begin_time = ''',activity('LookupLSNCDC').output.firstRow.CDCLastRun,''';\nSET @end_time = ''',pipeline().parameters.LSNEndTime,''';\nSET @from_lsn = sys.fn_cdc_map_time_to_lsn(''smallest greater than or equal'', @begin_time);\nSET @to_lsn = sys.fn_cdc_map_time_to_lsn(''largest less than or equal'', @end_time);\nSELECT count(1) changecount FROM cdc.fn_cdc_get_net_changes_',pipeline().parameters.SchemaName,'_',pipeline().parameters.TableName,'(@from_lsn, @to_lsn, ''all'')')",
+									"type": "Expression"
+								},
+								"queryTimeout": "02:00:00",
+								"partitionOption": "None"
+							},
+							"dataset": {
+								"referenceName": "DS_SQL_Generic",
+								"type": "DatasetReference",
+								"parameters": {
+									"ServerName": {
+										"value": "@pipeline().parameters.ServerName",
+										"type": "Expression"
+									},
+									"DBName": {
+										"value": "@pipeline().parameters.DBName",
+										"type": "Expression"
+									},
+									"SchemaName": {
+										"value": "@pipeline().parameters.SchemaName",
+										"type": "Expression"
+									},
+									"TableName": {
+										"value": "@pipeline().parameters.TableName",
+										"type": "Expression"
+									}
+								}
+							}
+						}
+					},
+					{
+						"name": "If Table has changed rows",
+						"type": "IfCondition",
+						"dependsOn": [
+							{
+								"activity": "Get CDC Change Count",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"userProperties": [],
+						"typeProperties": {
+							"expression": {
+								"value": "@greater(int(activity('Get CDC Change Count').output.firstRow.changecount),0)",
+								"type": "Expression"
+							},
+							"ifTrueActivities": [
+								{
+									"name": "Copy incremental data from CDC",
+									"type": "Copy",
+									"dependsOn": [],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"source": {
+											"type": "SqlServerSource",
+											"sqlReaderQuery": {
+												"value": "@concat('DECLARE @begin_time datetime, @end_time datetime, @from_lsn binary(10), @to_lsn binary(10) ; \nSET @begin_time = ''',activity('LookupLSNCDC').output.firstRow.CDCLastRun,''';\nSET @end_time = ''',pipeline().parameters.LSNEndTime,''';\nSET @from_lsn = sys.fn_cdc_map_time_to_lsn(''smallest greater than or equal'', @begin_time);\nSET @to_lsn = sys.fn_cdc_map_time_to_lsn(''largest less than or equal'', @end_time);\nSELECT * FROM cdc.fn_cdc_get_all_changes_',pipeline().parameters.SchemaName,'_',pipeline().parameters.TableName,'(@from_lsn, @to_lsn, ''all'')')",
+												"type": "Expression"
+											},
+											"queryTimeout": "02:00:00",
+											"partitionOption": "None"
+										},
+										"sink": {
+											"type": "ParquetSink",
+											"storeSettings": {
+												"type": "AzureBlobFSWriteSettings"
+											},
+											"formatSettings": {
+												"type": "ParquetWriteSettings"
+											}
+										},
+										"enableStaging": false,
+										"translator": {
+											"type": "TabularTranslator",
+											"typeConversion": true,
+											"typeConversionSettings": {
+												"allowDataTruncation": true,
+												"treatBooleanAsNumber": false
+											}
+										}
+									},
+									"inputs": [
+										{
+											"referenceName": "DS_SQL_Generic",
+											"type": "DatasetReference",
+											"parameters": {
+												"ServerName": "@pipeline().parameters.ServerName",
+												"DBName": {
+													"value": "@pipeline().parameters.DBName",
+													"type": "Expression"
+												},
+												"SchemaName": {
+													"value": "@pipeline().parameters.SchemaName",
+													"type": "Expression"
+												},
+												"TableName": {
+													"value": "@pipeline().parameters.TableName",
+													"type": "Expression"
+												}
+											}
+										}
+									],
+									"outputs": [
+										{
+											"referenceName": "DS_ADLSGEN2",
+											"type": "DatasetReference",
+											"parameters": {
+												"ADLSContainerName": {
+													"value": "@pipeline().parameters.ADLSContainerName",
+													"type": "Expression"
+												},
+												"DirectoryName": {
+													"value": "@concat(pipeline().parameters.TableName,'/','year=',formatDateTime(utcnow(),'yyyy'),'/','month=',formatDateTime(utcnow(),'MM'),'/','day=',formatDateTime(utcnow(),'dd'))",
+													"type": "Expression"
+												}
+											}
+										}
+									]
+								},
+								{
+									"name": "Copy data to staging for incremental processing",
+									"type": "Copy",
+									"dependsOn": [
+										{
+											"activity": "Copy incremental data from CDC",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										}
+									],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"source": {
+											"type": "ParquetSource",
+											"storeSettings": {
+												"type": "AzureBlobFSReadSettings",
+												"recursive": true,
+												"wildcardFolderPath": {
+													"value": "@concat(pipeline().parameters.TableName,'/','year=',formatDateTime(utcnow(),'yyyy'),'/','month=',formatDateTime(utcnow(),'MM'),'/','day=',formatDateTime(utcnow(),'dd'))",
+													"type": "Expression"
+												},
+												"wildcardFileName": "*.parquet",
+												"enablePartitionDiscovery": false
+											}
+										},
+										"sink": {
+											"type": "ParquetSink",
+											"storeSettings": {
+												"type": "AzureBlobFSWriteSettings"
+											},
+											"formatSettings": {
+												"type": "ParquetWriteSettings"
+											}
+										},
+										"enableStaging": false,
+										"translator": {
+											"type": "TabularTranslator",
+											"typeConversion": true,
+											"typeConversionSettings": {
+												"allowDataTruncation": true,
+												"treatBooleanAsNumber": false
+											}
+										}
+									},
+									"inputs": [
+										{
+											"referenceName": "DS_ADLSGEN2",
+											"type": "DatasetReference",
+											"parameters": {
+												"ADLSContainerName": "@pipeline().parameters.ADLSContainerName",
+												"DirectoryName": "@concat(pipeline().parameters.TableName,'/','year=',formatDateTime(utcnow(),'yyyy'),'/','month=',formatDateTime(utcnow(),'MM'),'/','day=',formatDateTime(utcnow(),'dd'))"
+											}
+										}
+									],
+									"outputs": [
+										{
+											"referenceName": "DS_ADLSGEN2",
+											"type": "DatasetReference",
+											"parameters": {
+												"ADLSContainerName": {
+													"value": "@pipeline().parameters.StageDirectoryName",
+													"type": "Expression"
+												},
+												"DirectoryName": {
+													"value": "@concat(pipeline().parameters.ServerName,'/',pipeline().parameters.TableName)",
+													"type": "Expression"
+												}
+											}
+										}
+									]
+								},
+								{
+									"name": "Insert Log Success",
+									"type": "SqlServerStoredProcedure",
+									"dependsOn": [
+										{
+											"activity": "Copy incremental data from CDC",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										}
+									],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"storedProcedureName": "[[dbo].[InsertLog]",
+										"storedProcedureParameters": {
+											"BronzeCount": {
+												"value": {
+													"value": "@activity('Copy incremental data from CDC').output.rowsCopied",
+													"type": "Expression"
+												},
+												"type": "Int64"
+											},
+											"DbName": {
+												"value": {
+													"value": "@pipeline().parameters.DBName",
+													"type": "Expression"
+												},
+												"type": "String"
+											},
+											"RunStatus": {
+												"value": "Sucess",
+												"type": "String"
+											},
+											"ServerName": {
+												"value": {
+													"value": "@pipeline().parameters.ServerName",
+													"type": "Expression"
+												},
+												"type": "String"
+											},
+											"SourceCount": {
+												"value": {
+													"value": "@activity('Copy incremental data from CDC').output.rowsRead",
+													"type": "Expression"
+												},
+												"type": "Int64"
+											},
+											"TableName": {
+												"value": {
+													"value": "@pipeline().parameters.TableName",
+													"type": "Expression"
+												},
+												"type": "String"
+											},
+											"error": {
+												"value": {
+													"value": "@activity('Copy incremental data from CDC').error?.message",
+													"type": "Expression"
+												},
+												"type": "String"
+											}
+										}
+									},
+									"linkedServiceName": {
+										"referenceName": "SqlServerconfig",
+										"type": "LinkedServiceReference"
+									}
+								},
+								{
+									"name": "Insert Log Failure",
+									"type": "SqlServerStoredProcedure",
+									"dependsOn": [
+										{
+											"activity": "Copy incremental data from CDC",
+											"dependencyConditions": [
+												"Failed"
+											]
+										}
+									],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"storedProcedureName": "[[dbo].[InsertLog]",
+										"storedProcedureParameters": {
+											"BronzeCount": {
+												"value": {
+													"value": "@activity('Copy incremental data from CDC').output?.rowsCopied",
+													"type": "Expression"
+												},
+												"type": "Int64"
+											},
+											"DbName": {
+												"value": {
+													"value": "@pipeline().parameters.DBName",
+													"type": "Expression"
+												},
+												"type": "String"
+											},
+											"RunStatus": {
+												"value": "Failure",
+												"type": "String"
+											},
+											"ServerName": {
+												"value": {
+													"value": "@pipeline().parameters.ServerName",
+													"type": "Expression"
+												},
+												"type": "String"
+											},
+											"SourceCount": {
+												"value": {
+													"value": "@activity('Copy incremental data from CDC').output?.rowsRead",
+													"type": "Expression"
+												},
+												"type": "Int64"
+											},
+											"TableName": {
+												"value": {
+													"value": "@pipeline().parameters.TableName",
+													"type": "Expression"
+												},
+												"type": "String"
+											},
+											"error": {
+												"value": {
+													"value": "@activity('Copy incremental data from CDC').error?.message",
+													"type": "Expression"
+												},
+												"type": "String"
+											}
+										}
+									},
+									"linkedServiceName": {
+										"referenceName": "SqlServerconfig",
+										"type": "LinkedServiceReference"
+									}
+								},
+								{
+									"name": "Update LSN",
+									"type": "SqlServerStoredProcedure",
+									"dependsOn": [
+										{
+											"activity": "Copy incremental data from CDC",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										}
+									],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"storedProcedureName": "[[dbo].[Update_CDCLSN_Version]",
+										"storedProcedureParameters": {
+											"lsn": {
+												"value": {
+													"value": "@pipeline().parameters.LSNEndTime",
+													"type": "Expression"
+												},
+												"type": "String"
+											},
+											"serverName": {
+												"value": {
+													"value": "@pipeline().parameters.ServerName",
+													"type": "Expression"
+												},
+												"type": "String"
+											},
+											"TableName": {
+												"value": {
+													"value": "@pipeline().parameters.TableName",
+													"type": "Expression"
+												},
+												"type": "String"
+											}
+										}
+									},
+									"linkedServiceName": {
+										"referenceName": "SqlServerconfig",
+										"type": "LinkedServiceReference"
+									}
+								}
+							]
+						}
+					},
+					{
+						"name": "LookupLSNCDC",
+						"type": "Lookup",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "SqlServerSource",
+								"sqlReaderQuery": {
+									"value": "\nSelect * from dbo.table_store_CDC_version where TableName= '@{pipeline().parameters.TableName}' and servername = '@{pipeline().parameters.ServerName}'",
+									"type": "Expression"
+								},
+								"queryTimeout": "02:00:00",
+								"partitionOption": "None"
+							},
+							"dataset": {
+								"referenceName": "DS_SQL_Config",
+								"type": "DatasetReference",
+								"parameters": {}
+							}
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"parameters": {
+					"ServerName": {
+						"type": "string",
+						"defaultValue": "sqlpocnonprod.database.windows.net"
+					},
+					"DBName": {
+						"type": "string",
+						"defaultValue": "POC"
+					},
+					"SchemaName": {
+						"type": "string",
+						"defaultValue": "dbo"
+					},
+					"TableName": {
+						"type": "string",
+						"defaultValue": "customers"
+					},
+					"LSNStartTime": {
+						"type": "string",
+						"defaultValue": "2023-02-18 00:17:01.087"
+					},
+					"LSNEndTime": {
+						"type": "string",
+						"defaultValue": "2023-02-20 08:37:01.087"
+					},
+					"ADLSContainerName": {
+						"type": "string",
+						"defaultValue": "landingbronze"
+					},
+					"ADLSDirectoryName": {
+						"type": "string"
+					},
+					"StageDirectoryName": {
+						"type": "string",
+						"defaultValue": "stgprocessing"
+					}
+				},
+				"variables": {
+					"LSNVal": {
+						"type": "String"
+					}
+				},
+				"annotations": [],
+				"lastPublishTime": "2024-02-20T15:44:07Z"
+			},
+			"dependsOn": []
+		}
+	]
+}

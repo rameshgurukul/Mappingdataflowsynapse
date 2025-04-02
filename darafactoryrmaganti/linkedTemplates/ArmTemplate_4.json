@@ -1,0 +1,1609 @@
+{
+	"$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"factoryName": {
+			"type": "string",
+			"metadata": "Data Factory name",
+			"defaultValue": "darafactoryrmaganti"
+		}
+	},
+	"variables": {
+		"factoryId": "[concat('Microsoft.DataFactory/factories/', parameters('factoryName'))]"
+	},
+	"resources": [
+		{
+			"name": "[concat(parameters('factoryName'), '/Dataflow_Dedup_Patterns')]",
+			"type": "Microsoft.DataFactory/factories/dataflows",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"type": "MappingDataFlow",
+				"typeProperties": {
+					"sources": [],
+					"sinks": [
+						{
+							"linkedService": {
+								"referenceName": "AzureDataLakeStorageWorkshop",
+								"type": "LinkedServiceReference"
+							},
+							"name": "sink"
+						}
+					],
+					"transformations": [
+						{
+							"name": "aggregate2"
+						},
+						{
+							"name": "DistinctRows"
+						},
+						{
+							"name": "aggregate3"
+						},
+						{
+							"name": "select1"
+						},
+						{
+							"name": "compose",
+							"flowlet": {
+								"referenceName": "FLW_GreenTaxi",
+								"type": "DataFlowReference",
+								"parameters": {}
+							}
+						},
+						{
+							"name": "compose1",
+							"flowlet": {
+								"referenceName": "FLW_GreenTaxi",
+								"type": "DataFlowReference",
+								"parameters": {}
+							}
+						}
+					],
+					"scriptLines": [
+						"compose(composition: 'FLW_GreenTaxi') ~> compose@(output)",
+						"compose(composition: 'FLW_GreenTaxi') ~> compose1@(output)",
+						"compose@output aggregate(rowcount = count(1)) ~> aggregate2",
+						"select1 aggregate(groupBy(mycols = sha2(256,columns())),",
+						"     each(match(true()), $$ = first($$))) ~> DistinctRows",
+						"DistinctRows aggregate(rcnt = count(1)) ~> aggregate3",
+						"compose1@output select(mapColumn(",
+						"          VendorID,",
+						"          lpep_pickup_datetime,",
+						"          lpep_dropoff_datetime,",
+						"          PULocationID",
+						"     ),",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> select1",
+						"aggregate3 sink(allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     format: 'delimited',",
+						"     fileSystem: 'synpswrkshp',",
+						"     columnDelimiter: ',',",
+						"     escapeChar: '\\\\',",
+						"     quoteChar: '\\\"',",
+						"     columnNamesAsHeader: false,",
+						"     umask: 0022,",
+						"     preCommands: [],",
+						"     postCommands: [],",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> sink"
+					]
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/Dataflow_Json')]",
+			"type": "Microsoft.DataFactory/factories/dataflows",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"type": "MappingDataFlow",
+				"typeProperties": {
+					"sources": [
+						{
+							"linkedService": {
+								"referenceName": "AzureDataLakeStorageWorkshop",
+								"type": "LinkedServiceReference"
+							},
+							"name": "source"
+						}
+					],
+					"sinks": [
+						{
+							"dataset": {
+								"referenceName": "ParquetSink",
+								"type": "DatasetReference"
+							},
+							"name": "sink"
+						}
+					],
+					"transformations": [
+						{
+							"name": "flatten"
+						},
+						{
+							"name": "flattencc"
+						}
+					],
+					"scriptLines": [
+						"source(output(",
+						"          customization as (id as short, type as string)[],",
+						"          enginecapacity as (cc as (id as short, type as string)[]),",
+						"          id as short,",
+						"          name as string,",
+						"          price as double,",
+						"          type as string",
+						"     ),",
+						"     useSchema: false,",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     limit: 100,",
+						"     ignoreNoFilesFound: false,",
+						"     format: 'json',",
+						"     fileSystem: 'synpswrkshp',",
+						"     fileName: 'SampleNestedJson.json',",
+						"     documentForm: 'arrayOfDocuments') ~> source",
+						"source foldDown(unroll(customization),",
+						"     mapColumn(",
+						"          customizationid = customization.id,",
+						"          id,",
+						"          name,",
+						"          price,",
+						"          type,",
+						"          customtype = customization.type,",
+						"          enginecapacity",
+						"     ),",
+						"     skipDuplicateMapInputs: false,",
+						"     skipDuplicateMapOutputs: false) ~> flatten",
+						"flatten foldDown(unroll(enginecapacity.cc),",
+						"     mapColumn(",
+						"          customizationid,",
+						"          id,",
+						"          name,",
+						"          price,",
+						"          type,",
+						"          customtype,",
+						"          ccid = enginecapacity.cc.id,",
+						"          cctype = enginecapacity.cc.type",
+						"     ),",
+						"     skipDuplicateMapInputs: false,",
+						"     skipDuplicateMapOutputs: false) ~> flattencc",
+						"flattencc sink(allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     format: 'parquet',",
+						"     umask: 0022,",
+						"     preCommands: [],",
+						"     postCommands: [],",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> sink"
+					]
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/Dataflow_Split')]",
+			"type": "Microsoft.DataFactory/factories/dataflows",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"type": "MappingDataFlow",
+				"typeProperties": {
+					"sources": [],
+					"sinks": [
+						{
+							"dataset": {
+								"referenceName": "ParquetSink",
+								"type": "DatasetReference"
+							},
+							"name": "sink1"
+						}
+					],
+					"transformations": [
+						{
+							"name": "derivedColumn"
+						},
+						{
+							"name": "derivedColumn1"
+						},
+						{
+							"name": "compose",
+							"flowlet": {
+								"referenceName": "FLW_GreenTaxi",
+								"type": "DataFlowReference",
+								"parameters": {}
+							}
+						}
+					],
+					"scriptLines": [
+						"compose(composition: 'FLW_GreenTaxi') ~> compose@(output)",
+						"compose@output derive(fname = '/myfiles/test.csv') ~> derivedColumn",
+						"derivedColumn derive(finalfname = split(fname, '/'),",
+						"          vname = case(VendorID==1, 'vanme1', 'vname2')) ~> derivedColumn1",
+						"derivedColumn1 sink(allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     format: 'parquet',",
+						"     umask: 0022,",
+						"     preCommands: [],",
+						"     postCommands: [],",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> sink1"
+					]
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/Dataflow_UDF')]",
+			"type": "Microsoft.DataFactory/factories/dataflows",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"type": "MappingDataFlow",
+				"typeProperties": {
+					"sources": [],
+					"sinks": [
+						{
+							"dataset": {
+								"referenceName": "ParquetSink",
+								"type": "DatasetReference"
+							},
+							"name": "sink"
+						}
+					],
+					"transformations": [
+						{
+							"name": "derivedColumn"
+						},
+						{
+							"name": "compose",
+							"flowlet": {
+								"referenceName": "FLW_GreenTaxi",
+								"type": "DataFlowReference",
+								"parameters": {}
+							}
+						}
+					],
+					"udfLibraries": [
+						{
+							"referenceName": "stringLib",
+							"type": "DataFlowReference"
+						}
+					],
+					"scriptLines": [
+						"compose(composition: 'FLW_GreenTaxi') ~> compose@(output)",
+						"compose@output derive(store_and_fwd_flag = TrimValue(store_and_fwd_flag)) ~> derivedColumn",
+						"derivedColumn sink(allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     format: 'parquet',",
+						"     umask: 0022,",
+						"     preCommands: [],",
+						"     postCommands: [],",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> sink"
+					]
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/Dataflow_bronze_curation')]",
+			"type": "Microsoft.DataFactory/factories/dataflows",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"type": "MappingDataFlow",
+				"typeProperties": {
+					"sources": [],
+					"sinks": [
+						{
+							"linkedService": {
+								"referenceName": "AzureDataLakeStorageWorkshop",
+								"type": "LinkedServiceReference"
+							},
+							"name": "sinkbronze"
+						}
+					],
+					"transformations": [
+						{
+							"name": "compose",
+							"flowlet": {
+								"referenceName": "FLW_GreenTaxi",
+								"type": "DataFlowReference",
+								"parameters": {}
+							}
+						}
+					],
+					"scriptLines": [
+						"compose(composition: 'FLW_GreenTaxi') ~> compose@(output)",
+						"compose@output sink(allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     format: 'delta',",
+						"     fileSystem: 'synpswrkshp',",
+						"     folderPath: 'bronze/NycGreenTaxi',",
+						"     overwrite: true,",
+						"     mergeSchema: false,",
+						"     autoCompact: false,",
+						"     optimizedWrite: false,",
+						"     vacuum: 0,",
+						"     deletable: false,",
+						"     insertable: true,",
+						"     updateable: false,",
+						"     upsertable: false,",
+						"     keys:['VendorID','lpep_pickup_datetime','lpep_dropoff_datetime','PULocationID','DOLocationID','RatecodeID','fare_amount','tip_amount'],",
+						"     umask: 0022,",
+						"     preCommands: [],",
+						"     postCommands: [],",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> sinkbronze"
+					]
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/Dataflow_mask')]",
+			"type": "Microsoft.DataFactory/factories/dataflows",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"type": "MappingDataFlow",
+				"typeProperties": {
+					"sources": [],
+					"sinks": [
+						{
+							"linkedService": {
+								"referenceName": "AzureDataLakeStorageWorkshop",
+								"type": "LinkedServiceReference"
+							},
+							"name": "sink1"
+						}
+					],
+					"transformations": [
+						{
+							"name": "derivedColumnmask"
+						},
+						{
+							"name": "compose1",
+							"flowlet": {
+								"referenceName": "FLW_GreenTaxi",
+								"type": "DataFlowReference",
+								"parameters": {}
+							}
+						}
+					],
+					"scriptLines": [
+						"compose(composition: 'FLW_GreenTaxi') ~> compose1@(output)",
+						"compose1@output derive(store_and_fwd_flag = sha2(256, store_and_fwd_flag)) ~> derivedColumnmask",
+						"derivedColumnmask sink(allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     format: 'delta',",
+						"     fileSystem: 'synpswrkshp',",
+						"     folderPath: 'bronze/mask',",
+						"     mergeSchema: false,",
+						"     autoCompact: false,",
+						"     optimizedWrite: false,",
+						"     vacuum: 0,",
+						"     deletable: false,",
+						"     insertable: true,",
+						"     updateable: false,",
+						"     upsertable: false,",
+						"     umask: 0022,",
+						"     preCommands: [],",
+						"     postCommands: [],",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> sink1"
+					]
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/Dataflow_window_rank')]",
+			"type": "Microsoft.DataFactory/factories/dataflows",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"type": "MappingDataFlow",
+				"typeProperties": {
+					"sources": [
+						{
+							"linkedService": {
+								"referenceName": "AzureDataLakeStorageWorkshop",
+								"type": "LinkedServiceReference"
+							},
+							"name": "sourcelkp"
+						}
+					],
+					"sinks": [
+						{
+							"linkedService": {
+								"referenceName": "AzureDataLakeStorageWorkshop",
+								"type": "LinkedServiceReference"
+							},
+							"name": "sink"
+						}
+					],
+					"transformations": [
+						{
+							"name": "derivedColumn"
+						},
+						{
+							"name": "select"
+						},
+						{
+							"name": "aggregate"
+						},
+						{
+							"name": "windowlag"
+						},
+						{
+							"name": "join"
+						},
+						{
+							"name": "compose",
+							"flowlet": {
+								"referenceName": "FLW_GreenTaxi",
+								"type": "DataFlowReference",
+								"parameters": {}
+							}
+						}
+					],
+					"scriptLines": [
+						"source(output(",
+						"          LocationID as short,",
+						"          Borough as string,",
+						"          Zone as string,",
+						"          service_zone as string",
+						"     ),",
+						"     useSchema: false,",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     ignoreNoFilesFound: false,",
+						"     format: 'delimited',",
+						"     fileSystem: 'synpswrkshp',",
+						"     fileName: 'taxizonelookup.csv',",
+						"     columnDelimiter: ',',",
+						"     escapeChar: '\\\\',",
+						"     quoteChar: '\\\"',",
+						"     columnNamesAsHeader: true) ~> sourcelkp",
+						"compose(composition: 'FLW_GreenTaxi') ~> compose@(output)",
+						"select derive(pickupdate = toDate(lpep_pickup_datetime)) ~> derivedColumn",
+						"join select(mapColumn(",
+						"          lpep_pickup_datetime,",
+						"          PULocationID,",
+						"          DOLocationID,",
+						"          passenger_count,",
+						"          trip_distance,",
+						"          fare_amount,",
+						"          tip_amount,",
+						"          total_amount,",
+						"          pickupborough = Borough",
+						"     ),",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> select",
+						"derivedColumn aggregate(groupBy(pickupdate,",
+						"          PULocationID,",
+						"          pickupborough),",
+						"     trip_distance = sum(trip_distance),",
+						"          total_amount = sum(total_amount),",
+						"          tip_amount = sum(tip_amount)) ~> aggregate",
+						"aggregate window(over(pickupdate),",
+						"     desc(total_amount, true),",
+						"     rank = rank(),",
+						"     partitionBy('hash', 1)) ~> windowlag",
+						"compose@output, sourcelkp join(PULocationID == LocationID,",
+						"     joinType:'left',",
+						"     matchType:'exact',",
+						"     ignoreSpaces: false,",
+						"     broadcast: 'auto')~> join",
+						"windowlag sink(allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     format: 'delimited',",
+						"     fileSystem: 'synpswrkshp',",
+						"     folderPath: 'Output',",
+						"     columnDelimiter: ',',",
+						"     escapeChar: '\\\\',",
+						"     quoteChar: '\\\"',",
+						"     columnNamesAsHeader: true,",
+						"     umask: 0022,",
+						"     preCommands: [],",
+						"     postCommands: [],",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true,",
+						"     partitionBy('hash', 1)) ~> sink"
+					]
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/dataflowaggdemo')]",
+			"type": "Microsoft.DataFactory/factories/dataflows",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"type": "MappingDataFlow",
+				"typeProperties": {
+					"sources": [
+						{
+							"dataset": {
+								"referenceName": "DS_Parquet",
+								"type": "DatasetReference"
+							},
+							"name": "source1"
+						}
+					],
+					"sinks": [
+						{
+							"linkedService": {
+								"referenceName": "AzureDataLakeStorageWorkshop",
+								"type": "LinkedServiceReference"
+							},
+							"name": "sink1"
+						}
+					],
+					"transformations": [
+						{
+							"name": "aggregate1"
+						}
+					],
+					"scriptLines": [
+						"source(output(",
+						"          VendorID as long,",
+						"          lpep_pickup_datetime as timestamp,",
+						"          lpep_dropoff_datetime as timestamp,",
+						"          store_and_fwd_flag as string,",
+						"          RatecodeID as double,",
+						"          PULocationID as long,",
+						"          DOLocationID as long,",
+						"          passenger_count as double,",
+						"          trip_distance as double,",
+						"          fare_amount as double,",
+						"          extra as double,",
+						"          mta_tax as double,",
+						"          tip_amount as double,",
+						"          tolls_amount as double,",
+						"          ehail_fee as integer,",
+						"          improvement_surcharge as double,",
+						"          total_amount as double,",
+						"          payment_type as double,",
+						"          trip_type as double,",
+						"          congestion_surcharge as double",
+						"     ),",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     ignoreNoFilesFound: false,",
+						"     format: 'parquet') ~> source1",
+						"source1 aggregate(groupBy(DOLocationID),",
+						"     fare_amount = sum(fare_amount)) ~> aggregate1",
+						"aggregate1 sink(allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     format: 'delta',",
+						"     fileSystem: 'landingbronze',",
+						"     folderPath: 'aggregate',",
+						"     mergeSchema: false,",
+						"     autoCompact: false,",
+						"     optimizedWrite: false,",
+						"     vacuum: 0,",
+						"     deletable: false,",
+						"     insertable: true,",
+						"     updateable: false,",
+						"     upsertable: false,",
+						"     umask: 0022,",
+						"     preCommands: [],",
+						"     postCommands: [],",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> sink1"
+					]
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/PL_Bronze_Curation')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "Data flow bronze",
+						"type": "ExecuteDataFlow",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"dataflow": {
+								"referenceName": "Dataflow_bronze_curation",
+								"type": "DataFlowReference",
+								"parameters": {},
+								"datasetParameters": {
+									"sinkbronze": {}
+								}
+							},
+							"staging": {},
+							"integrationRuntime": {
+								"referenceName": "integrationRuntime7",
+								"type": "IntegrationRuntimeReference"
+							},
+							"traceLevel": "Fine"
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"annotations": [],
+				"lastPublishTime": "2023-02-09T22:46:03Z"
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/dataflows/Dataflow_bronze_curation')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/PL_Create_Complex')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "Data flow",
+						"type": "ExecuteDataFlow",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"dataflow": {
+								"referenceName": "Dataflow_Create_ComplexType",
+								"type": "DataFlowReference",
+								"parameters": {},
+								"datasetParameters": {
+									"sink": {
+										"ContainerName": "synpswrkshp",
+										"DirectoryName": "OutputComplex"
+									}
+								}
+							},
+							"staging": {},
+							"compute": {
+								"coreCount": 8,
+								"computeType": "General"
+							},
+							"traceLevel": "Fine"
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"annotations": [],
+				"lastPublishTime": "2023-02-09T16:04:23Z"
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/PL_DF_DEBUG_EXPLORATION')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "Data flow debug explore",
+						"type": "ExecuteDataFlow",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"dataflow": {
+								"referenceName": "DF_DataExploration",
+								"type": "DataFlowReference",
+								"parameters": {},
+								"datasetParameters": {
+									"srcadls": {},
+									"srcnewlkp": {},
+									"snkadls": {}
+								}
+							},
+							"staging": {},
+							"integrationRuntime": {
+								"referenceName": "DataFlowWarmPoolIntegrationRuntime",
+								"type": "IntegrationRuntimeReference"
+							},
+							"traceLevel": "Fine"
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"annotations": [],
+				"lastPublishTime": "2023-02-08T06:30:13Z"
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/PL_DF_WINDOW_RANK')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "Data flow",
+						"type": "ExecuteDataFlow",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"dataflow": {
+								"referenceName": "Dataflow_window_rank",
+								"type": "DataFlowReference",
+								"parameters": {},
+								"datasetParameters": {
+									"sourcelkp": {},
+									"sink": {}
+								}
+							},
+							"staging": {},
+							"compute": {
+								"coreCount": 8,
+								"computeType": "General"
+							},
+							"traceLevel": "Fine"
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"annotations": [],
+				"lastPublishTime": "2023-02-09T15:03:12Z"
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/dataflows/Dataflow_window_rank')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/PL_Dynamic_ClusterSize_Audit')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "Get Metadata",
+						"type": "GetMetadata",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"dataset": {
+								"referenceName": "DS_Parquet",
+								"type": "DatasetReference",
+								"parameters": {}
+							},
+							"fieldList": [
+								"size"
+							],
+							"storeSettings": {
+								"type": "AzureBlobFSReadSettings",
+								"recursive": true,
+								"enablePartitionDiscovery": false
+							}
+						}
+					},
+					{
+						"name": "Data flow1",
+						"type": "ExecuteDataFlow",
+						"dependsOn": [
+							{
+								"activity": "Get Metadata",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"dataflow": {
+								"referenceName": "Dataflow_mask",
+								"type": "DataFlowReference",
+								"parameters": {},
+								"datasetParameters": {
+									"sink1": {}
+								}
+							},
+							"staging": {},
+							"compute": {
+								"coreCount": {
+									"value": "@if(greater(activity('Get Metadata').output.size,40000 ),8,4 )",
+									"type": "Expression"
+								},
+								"computeType": "General"
+							},
+							"traceLevel": "Fine"
+						}
+					},
+					{
+						"name": "Set variable1",
+						"type": "SetVariable",
+						"dependsOn": [
+							{
+								"activity": "Data flow1",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"variableName": "rowswritten",
+							"value": {
+								"value": "@string(activity('Data flow1').output) ",
+								"type": "Expression"
+							}
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"variables": {
+					"rowswritten": {
+						"type": "String"
+					}
+				},
+				"annotations": [],
+				"lastPublishTime": "2023-02-12T08:37:21Z"
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/dataflows/Dataflow_mask')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/PL_Flowlet_PivotTest')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "Data flow",
+						"type": "ExecuteDataFlow",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"dataflow": {
+								"referenceName": "DF_Pivot_MapDrifted",
+								"type": "DataFlowReference",
+								"parameters": {},
+								"datasetParameters": {
+									"sink": {}
+								}
+							},
+							"staging": {},
+							"integrationRuntime": {
+								"referenceName": "DataFlowWarmPoolIntegrationRuntime",
+								"type": "IntegrationRuntimeReference"
+							},
+							"traceLevel": "Fine"
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"annotations": [],
+				"lastPublishTime": "2023-02-08T08:05:36Z"
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/PL_Generic_Ingest_Executor_V1')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "Lookup Config Table",
+						"type": "Lookup",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "SqlServerSource",
+								"sqlReaderQuery": "/****** Script for SelectTopNRows command from SSMS  ******/\nSELECT *\n      \n  FROM dbo.ControlTableIntegrated where IsActive='yes'",
+								"queryTimeout": "02:00:00",
+								"partitionOption": "None"
+							},
+							"dataset": {
+								"referenceName": "DS_SQL_Config",
+								"type": "DatasetReference",
+								"parameters": {}
+							},
+							"firstRowOnly": false
+						}
+					},
+					{
+						"name": "ForEach Record to Ingest",
+						"type": "ForEach",
+						"dependsOn": [
+							{
+								"activity": "Lookup Config Table",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"userProperties": [],
+						"typeProperties": {
+							"items": {
+								"value": "@activity('Lookup Config Table').output.value",
+								"type": "Expression"
+							},
+							"activities": [
+								{
+									"name": "RouteJobsBasedOnCopyBehavior",
+									"type": "Switch",
+									"dependsOn": [],
+									"userProperties": [],
+									"typeProperties": {
+										"on": {
+											"value": "@item().CopyMode",
+											"type": "Expression"
+										},
+										"cases": [
+											{
+												"value": "CDC",
+												"activities": [
+													{
+														"name": "Execute Pipeline CDC",
+														"type": "ExecutePipeline",
+														"dependsOn": [],
+														"policy": {
+															"secureInput": false
+														},
+														"userProperties": [],
+														"typeProperties": {
+															"pipeline": {
+																"referenceName": "PL_GENERIC_SQL_CDC_INGEST",
+																"type": "PipelineReference"
+															},
+															"waitOnCompletion": true,
+															"parameters": {
+																"ServerName": {
+																	"value": "@item().SourceServerName",
+																	"type": "Expression"
+																},
+																"DBName": {
+																	"value": "@item().SourceDBName",
+																	"type": "Expression"
+																},
+																"SchemaName": {
+																	"value": "@item().SchemaName",
+																	"type": "Expression"
+																},
+																"TableName": {
+																	"value": "@item().SourceTableName",
+																	"type": "Expression"
+																},
+																"LSNEndTime": {
+																	"value": "@utcNow('yyyy-MM-dd HH:mm:ss:ff')",
+																	"type": "Expression"
+																},
+																"ADLSContainerName": {
+																	"value": "@item().ADLSContainerName",
+																	"type": "Expression"
+																},
+																"StageDirectoryName": {
+																	"value": "@item().StagingContainer",
+																	"type": "Expression"
+																}
+															}
+														}
+													}
+												]
+											},
+											{
+												"value": "CHANGE TRACKING",
+												"activities": [
+													{
+														"name": "Execute Pipeline Change Tracking",
+														"type": "ExecutePipeline",
+														"dependsOn": [],
+														"policy": {
+															"secureInput": false
+														},
+														"userProperties": [],
+														"typeProperties": {
+															"pipeline": {
+																"referenceName": "PL_Generic_SQL_CHANGETRACKING",
+																"type": "PipelineReference"
+															},
+															"waitOnCompletion": true,
+															"parameters": {
+																"ServerName": {
+																	"value": "@item().SourceServerName\n",
+																	"type": "Expression"
+																},
+																"DBName": {
+																	"value": "@item().SourceDBName",
+																	"type": "Expression"
+																},
+																"SchemaName": {
+																	"value": "@item().SchemaName",
+																	"type": "Expression"
+																},
+																"TableName": {
+																	"value": "@item().SourceTableName",
+																	"type": "Expression"
+																},
+																"ADLSContainerName": {
+																	"value": "@item().ADLSContainerName",
+																	"type": "Expression"
+																},
+																"StageDirectoryName": {
+																	"value": "@item().StagingContainer",
+																	"type": "Expression"
+																},
+																"ChangeColumnName": {
+																	"value": "@item().DeltaColumnName",
+																	"type": "Expression"
+																}
+															}
+														}
+													}
+												]
+											},
+											{
+												"value": "WATERMARK",
+												"activities": [
+													{
+														"name": "Execute Pipeline WaterMark",
+														"type": "ExecutePipeline",
+														"dependsOn": [],
+														"policy": {
+															"secureInput": false
+														},
+														"userProperties": [],
+														"typeProperties": {
+															"pipeline": {
+																"referenceName": "PL_GENERIC_INGEST_WATERMARK",
+																"type": "PipelineReference"
+															},
+															"waitOnCompletion": true,
+															"parameters": {
+																"ServerName": {
+																	"value": "@item().SourceServerName\n",
+																	"type": "Expression"
+																},
+																"DBName": {
+																	"value": "@item().SourceDBName",
+																	"type": "Expression"
+																},
+																"SchemaName": {
+																	"value": "@item().SchemaName",
+																	"type": "Expression"
+																},
+																"TableName": {
+																	"value": "@item().SourceTableName",
+																	"type": "Expression"
+																},
+																"ADLSContainerName": {
+																	"value": "@item().ADLSContainerName",
+																	"type": "Expression"
+																},
+																"StageDirectoryName": {
+																	"value": "@item().StagingContainer",
+																	"type": "Expression"
+																},
+																"WaterMarkColumnName": {
+																	"value": "@item().WaterMarkColumnName",
+																	"type": "Expression"
+																}
+															}
+														}
+													}
+												]
+											},
+											{
+												"value": "FULL",
+												"activities": [
+													{
+														"name": "Execute Pipeline Full",
+														"type": "ExecutePipeline",
+														"dependsOn": [],
+														"policy": {
+															"secureInput": false
+														},
+														"userProperties": [],
+														"typeProperties": {
+															"pipeline": {
+																"referenceName": "PL_Generic_Full_Load",
+																"type": "PipelineReference"
+															},
+															"waitOnCompletion": true,
+															"parameters": {
+																"ServerName": {
+																	"value": "@item().SourceServerName\n",
+																	"type": "Expression"
+																},
+																"DBName": {
+																	"value": "@item().SourceDBName",
+																	"type": "Expression"
+																},
+																"SchemaName": {
+																	"value": "@item().SchemaName",
+																	"type": "Expression"
+																},
+																"TableName": {
+																	"value": "@item().SourceTableName",
+																	"type": "Expression"
+																},
+																"ADLSContainerName": {
+																	"value": "@item().ADLSContainerName",
+																	"type": "Expression"
+																},
+																"ArchivalContainerName": {
+																	"value": "@item().StagingContainer",
+																	"type": "Expression"
+																},
+																"PartitionUpperBound": {
+																	"value": "@item().PartitionUpperBound",
+																	"type": "Expression"
+																},
+																"PartitionLowerBound": {
+																	"value": "@item().PartitionLowerBound",
+																	"type": "Expression"
+																},
+																"PartitionColumnName": {
+																	"value": "@item().PartitionColumnName",
+																	"type": "Expression"
+																}
+															}
+														}
+													}
+												]
+											}
+										]
+									}
+								}
+							]
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"annotations": [],
+				"lastPublishTime": "2024-02-20T15:44:08Z"
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/PL_Generic_Ingest_Executor_V11')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "Lookup Config Table",
+						"type": "Lookup",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "SqlServerSource",
+								"sqlReaderQuery": "/****** Script for SelectTopNRows command from SSMS  ******/\nSELECT *\n      \n  FROM dbo.ControlTableIntegrated where IsActive='yes'",
+								"queryTimeout": "02:00:00",
+								"partitionOption": "None"
+							},
+							"dataset": {
+								"referenceName": "DS_SQL_Config1",
+								"type": "DatasetReference",
+								"parameters": {}
+							},
+							"firstRowOnly": false
+						}
+					},
+					{
+						"name": "ForEach Record to Ingest",
+						"type": "ForEach",
+						"dependsOn": [
+							{
+								"activity": "Lookup Config Table",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"userProperties": [],
+						"typeProperties": {
+							"items": {
+								"value": "@activity('Lookup Config Table').output.value",
+								"type": "Expression"
+							},
+							"activities": [
+								{
+									"name": "RouteJobsBasedOnCopyBehavior",
+									"type": "Switch",
+									"dependsOn": [],
+									"userProperties": [],
+									"typeProperties": {
+										"on": {
+											"value": "@item().CopyMode",
+											"type": "Expression"
+										},
+										"cases": [
+											{
+												"value": "CDC",
+												"activities": [
+													{
+														"name": "Execute Pipeline CDC",
+														"type": "ExecutePipeline",
+														"dependsOn": [],
+														"policy": {
+															"secureInput": false
+														},
+														"userProperties": [],
+														"typeProperties": {
+															"pipeline": {
+																"referenceName": "PL_GENERIC_SQL_CDC_INGEST1",
+																"type": "PipelineReference"
+															},
+															"waitOnCompletion": true,
+															"parameters": {
+																"ServerName": {
+																	"value": "@item().SourceServerName",
+																	"type": "Expression"
+																},
+																"DBName": {
+																	"value": "@item().SourceDBName",
+																	"type": "Expression"
+																},
+																"SchemaName": {
+																	"value": "@item().SchemaName",
+																	"type": "Expression"
+																},
+																"TableName": {
+																	"value": "@item().SourceTableName",
+																	"type": "Expression"
+																},
+																"LSNEndTime": {
+																	"value": "@utcNow('yyyy-MM-dd HH:mm:ss:ff')",
+																	"type": "Expression"
+																},
+																"ADLSContainerName": {
+																	"value": "@item().ADLSContainerName",
+																	"type": "Expression"
+																},
+																"StageDirectoryName": {
+																	"value": "@item().StagingContainer",
+																	"type": "Expression"
+																}
+															}
+														}
+													}
+												]
+											},
+											{
+												"value": "CHANGE TRACKING",
+												"activities": [
+													{
+														"name": "Execute Pipeline Change Tracking",
+														"type": "ExecutePipeline",
+														"dependsOn": [],
+														"policy": {
+															"secureInput": false
+														},
+														"userProperties": [],
+														"typeProperties": {
+															"pipeline": {
+																"referenceName": "PL_Generic_SQL_CHANGETRACKING1",
+																"type": "PipelineReference"
+															},
+															"waitOnCompletion": true,
+															"parameters": {
+																"ServerName": {
+																	"value": "@item().SourceServerName\n",
+																	"type": "Expression"
+																},
+																"DBName": {
+																	"value": "@item().SourceDBName",
+																	"type": "Expression"
+																},
+																"SchemaName": {
+																	"value": "@item().SchemaName",
+																	"type": "Expression"
+																},
+																"TableName": {
+																	"value": "@item().SourceTableName",
+																	"type": "Expression"
+																},
+																"ADLSContainerName": {
+																	"value": "@item().ADLSContainerName",
+																	"type": "Expression"
+																},
+																"StageDirectoryName": {
+																	"value": "@item().StagingContainer",
+																	"type": "Expression"
+																},
+																"ChangeColumnName": {
+																	"value": "@item().DeltaColumnName",
+																	"type": "Expression"
+																}
+															}
+														}
+													}
+												]
+											},
+											{
+												"value": "WATERMARK",
+												"activities": [
+													{
+														"name": "Execute Pipeline WaterMark",
+														"type": "ExecutePipeline",
+														"dependsOn": [],
+														"policy": {
+															"secureInput": false
+														},
+														"userProperties": [],
+														"typeProperties": {
+															"pipeline": {
+																"referenceName": "PL_GENERIC_INGEST_WATERMARK1",
+																"type": "PipelineReference"
+															},
+															"waitOnCompletion": true,
+															"parameters": {
+																"ServerName": {
+																	"value": "@item().SourceServerName\n",
+																	"type": "Expression"
+																},
+																"DBName": {
+																	"value": "@item().SourceDBName",
+																	"type": "Expression"
+																},
+																"SchemaName": {
+																	"value": "@item().SchemaName",
+																	"type": "Expression"
+																},
+																"TableName": {
+																	"value": "@item().SourceTableName",
+																	"type": "Expression"
+																},
+																"ADLSContainerName": {
+																	"value": "@item().ADLSContainerName",
+																	"type": "Expression"
+																},
+																"StageDirectoryName": {
+																	"value": "@item().StagingContainer",
+																	"type": "Expression"
+																},
+																"WaterMarkColumnName": {
+																	"value": "@item().WaterMarkColumnName",
+																	"type": "Expression"
+																}
+															}
+														}
+													}
+												]
+											},
+											{
+												"value": "FULL",
+												"activities": [
+													{
+														"name": "Execute Pipeline Full",
+														"type": "ExecutePipeline",
+														"dependsOn": [],
+														"policy": {
+															"secureInput": false
+														},
+														"userProperties": [],
+														"typeProperties": {
+															"pipeline": {
+																"referenceName": "PL_Generic_Full_Load1",
+																"type": "PipelineReference"
+															},
+															"waitOnCompletion": true,
+															"parameters": {
+																"ServerName": {
+																	"value": "@item().SourceServerName\n",
+																	"type": "Expression"
+																},
+																"DBName": {
+																	"value": "@item().SourceDBName",
+																	"type": "Expression"
+																},
+																"SchemaName": {
+																	"value": "@item().SchemaName",
+																	"type": "Expression"
+																},
+																"TableName": {
+																	"value": "@item().SourceTableName",
+																	"type": "Expression"
+																},
+																"ADLSContainerName": {
+																	"value": "@item().ADLSContainerName",
+																	"type": "Expression"
+																},
+																"ArchivalContainerName": {
+																	"value": "@item().StagingContainer",
+																	"type": "Expression"
+																},
+																"PartitionUpperBound": {
+																	"value": "@item().PartitionUpperBound",
+																	"type": "Expression"
+																},
+																"PartitionLowerBound": {
+																	"value": "@item().PartitionLowerBound",
+																	"type": "Expression"
+																},
+																"PartitionColumnName": {
+																	"value": "@item().PartitionColumnName",
+																	"type": "Expression"
+																}
+															}
+														}
+													}
+												]
+											}
+										]
+									}
+								}
+							]
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"annotations": []
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/PL_Partition_Optimize')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "Data flow partition",
+						"type": "ExecuteDataFlow",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"dataflow": {
+								"referenceName": "DF_Partioning_Optmize",
+								"type": "DataFlowReference",
+								"parameters": {},
+								"datasetParameters": {
+									"srcDF": {},
+									"sinkdelta": {}
+								}
+							},
+							"staging": {},
+							"integrationRuntime": {
+								"referenceName": "DataFlowWarmPoolIntegrationRuntime",
+								"type": "IntegrationRuntimeReference"
+							},
+							"traceLevel": "Fine"
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"annotations": [],
+				"lastPublishTime": "2023-02-08T06:48:18Z"
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/pipelineaggdemo')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "Data flow1",
+						"type": "ExecuteDataFlow",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"dataflow": {
+								"referenceName": "dataflowaggdemo",
+								"type": "DataFlowReference",
+								"parameters": {},
+								"datasetParameters": {
+									"source1": {},
+									"sink1": {}
+								}
+							},
+							"staging": {},
+							"integrationRuntime": {
+								"referenceName": "dataflowruntime",
+								"type": "IntegrationRuntimeReference"
+							},
+							"traceLevel": "Fine"
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"annotations": []
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/dataflows/dataflowaggdemo')]"
+			]
+		}
+	]
+}
